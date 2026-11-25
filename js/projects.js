@@ -94,34 +94,34 @@
   }
 
   // ---------- the two blocks ----------
-  const ASP = 0.78, DEP = 0.42; // block: width 0.78, height 1, depth 0.42 (scaled to fit its link)
+  const ASP = 0.74, DEP = 0.34; // block: width 0.78, height 1, depth 0.42 (scaled to fit its link)
   const blockGeo = new T.RoundedBoxGeometry(ASP, 1, DEP, 6, 0.035);
   const etchDraw = {
     sky: (x, w, h) => {
       const L = 64;
-      mono(x, 'HACKPHS · OCTOBER 2026', 26, L, 96, '#5E8AAB', w - L * 2);
+      mono(x, 'HACKPHS · OCTOBER 2026', 26, L, 96, '#1E3447', w - L * 2);
       disp(x, 'SKY SENTRY', 600, 92, L, 200, '#0F1B26', w - L * 2);
       rule(x, L, 246, w - L * 2);
-      [['BEST USE OF', 'SOLANA'], ['BEST USE OF', 'TIGERDATA'], ['OVERALL', '5TH PLACE']].forEach((a, i) => { const y = 350 + i * 196; mono(x, a[0], 24, L, y, '#5E8AAB', w - L * 2); disp(x, a[1], 600, 70, L, y + 82, '#0F1B26', w - L * 2); });
-      mono(x, '3 AWARDS · SKY SENTRY', 22, L, 940, '#66788A', w - L * 2);
+      [['BEST USE OF', 'SOLANA'], ['BEST USE OF', 'TIGERDATA'], ['OVERALL', '5TH PLACE']].forEach((a, i) => { const y = 350 + i * 196; mono(x, a[0], 24, L, y, '#1E3447', w - L * 2); disp(x, a[1], 600, 70, L, y + 82, '#0F1B26', w - L * 2); });
+      mono(x, '3 AWARDS · SKY SENTRY', 22, L, 940, '#3A5266', w - L * 2);
     },
     echo: (x, w, h) => {
       const L = 64;
-      mono(x, 'HACK CLUB HAVEN PRINCETON', 26, L, 96, '#5E8AAB', w - L * 2);
-      mono(x, 'NOVEMBER 14 TO 15, 2026', 26, L, 140, '#5E8AAB', w - L * 2);
+      mono(x, 'HACK CLUB HAVEN PRINCETON', 26, L, 96, '#1E3447', w - L * 2);
+      mono(x, 'NOVEMBER 14 TO 15, 2026', 26, L, 140, '#1E3447', w - L * 2);
       disp(x, 'ECHO', 600, 118, L, 262, '#0F1B26', w - L * 2);
       rule(x, L, 306, w - L * 2);
-      mono(x, 'AWARD', 24, L, 410, '#5E8AAB', w - L * 2);
+      mono(x, 'AWARD', 24, L, 410, '#1E3447', w - L * 2);
       disp(x, '1ST', 700, 280, L - 10, 680, '#0F1B26', w - L * 2);
       disp(x, 'PRIZE,', 600, 70, L, 786, '#0F1B26', w - L * 2);
       disp(x, 'BEST OVERALL', 600, 70, L, 868, '#0F1B26', w - L * 2);
-      mono(x, '1 AWARD · ECHO', 22, L, 950, '#66788A', w - L * 2);
+      mono(x, '1 AWARD · ECHO', 22, L, 950, '#3A5266', w - L * 2);
     },
   };
   // etched text: a white highlight under dark ink, like letters cut into ice
   function fit(x, s, font, size, maxW) { let z = size; x.font = font(z); while (x.measureText(s).width > maxW && z > 10) { z -= 2; x.font = font(z); } }
   function etch(x, s, X, Y, col) { x.globalAlpha = 0.75; x.fillStyle = '#FFFFFF'; x.fillText(s, X + 1, Y + 1.5); x.globalAlpha = 1; x.fillStyle = col; x.fillText(s, X, Y); }
-  function mono(x, s, size, X, Y, col, maxW) { x.letterSpacing = '5px'; fit(x, s, (z) => '500 ' + z + 'px "Geist Mono", ui-monospace, monospace', size, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
+  function mono(x, s, size, X, Y, col, maxW) { x.letterSpacing = '4px'; fit(x, s, (z) => '500 ' + z + 'px "Geist Mono", ui-monospace, monospace', size * 1.3, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function disp(x, s, wt, size, X, Y, col, maxW) { x.letterSpacing = '-2px'; fit(x, s, (z) => wt + ' ' + z + 'px Unbounded, system-ui, sans-serif', size, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function rule(x, X, Y, w) { x.fillStyle = 'rgba(94,138,171,.55)'; x.fillRect(X, Y, w, 2); x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(X, Y + 2, w, 2); }
 
@@ -175,9 +175,9 @@
         '{ float fr = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2);',
         '  float low = smoothstep(0.45, -0.5, vOP.y);',
         '  vec3 deep = vec3(0.30, 0.47, 0.62);',
-        '  outgoingLight *= mix(vec3(1.0), deep, clamp(fr * 0.9 + low * 0.28, 0.0, 1.0) * (1.0 - 0.3 * uH));',
-        '  outgoingLight += vec3(0.62, 0.78, 0.9) * uH * 0.22 * (1.0 - fr);',
-        '  outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.8, 0.84, 0.88) + 0.04, uDim); }',
+        '  outgoingLight *= mix(vec3(1.0), deep, clamp(fr * 0.9 + low * 0.28, 0.0, 1.0) * (1.0 - 0.12 * uH));',
+        '  outgoingLight += vec3(0.62, 0.78, 0.9) * uH * 0.07 * (1.0 - fr) * (1.0 - low * 0.6);',
+        '  outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.86, 0.89, 0.92) + 0.05, uDim); }',
         '#include <output_fragment>'].join('\n'));
     };
     mat.customProgramCacheKey = () => 'proj-ice';
@@ -214,7 +214,7 @@
       const s = spaces[i].getBoundingClientRect(), cx = s.left + s.width / 2 - r.left, cy = s.top + s.height / 2 - r.top;
       const dir = V(cx / W * 2 - 1, -(cy / H * 2 - 1), 0.5).unproject(C).sub(C.position).normalize();
       b.base.copy(C.position).addScaledVector(dir, D / dir.dot(f));
-      const hPx = Math.max(40, Math.min(s.height * 0.92, s.width * 0.92 / (ASP * 1.12)));
+      const hPx = Math.max(40, Math.min(s.height * 0.86, s.width * 0.9 / (ASP * 1.12)));
       b.sc = hPx * k; low = Math.min(low, b.base.y - b.sc / 2); avg += b.sc / B.length;
       b.bubbles.material.uniforms.uScale.value = H; b.light.distance = b.sc * 2.6;
     });
@@ -299,12 +299,12 @@
       b.group.rotation.set(Math.sin(t * 0.4 + b.ph) * 0.025 * idle, b.d.rot * (1 - 0.5 * h) + Math.sin(t * 0.25 + b.ph) * 0.08 * idle + mouse.x * 0.14 * h * idle, Math.sin(t * 0.33 + b.ph) * 0.015 * idle);
       b.group.scale.setScalar(b.sc * (1 - 0.04 * dim));
       b.widen.scale.x = 1 + 0.12 * h;
-      b.glow.material.uniforms.uA.value = (0.08 + 0.7 * h - 0.06 * dim) * (1 - ss(0.5, 0.9, fp)) * (1 - fo);
+      b.glow.material.uniforms.uA.value = (0.06 + 0.26 * h - 0.05 * dim) * (1 - ss(0.5, 0.9, fp)) * (1 - fo);
       b.light.intensity = (1.2 + 5.5 * h - 0.9 * dim) * (b.sc / 3); b.light.position.set(0, -0.1, 0);
       b.text.material.opacity = (0.92 - 0.5 * dim) * (1 - ss(0.45, 0.75, fp)) * (1 - fo);
       b.crack.uniforms.uK.value = h; b.crack.uniforms.uA.value = (1 - dim) * (1 - fo);
       b.bubbles.material.uniforms.uA.value = 1 - 0.6 * dim;
-      b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.5 * h - 0.4 * dim); b.u.uH.value = h; b.u.uDim.value = dim;
+      b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.2 * h - 0.3 * dim); b.u.uH.value = h; b.u.uDim.value = dim;
       b.shadow.material.uniforms.uA.value = 0.2 + 0.06 * h - 0.06 * dim; b.pool.material.uniforms.uA.value = 0.05 + 0.4 * h;
     });
     grade.uniforms.uT.value = t;
