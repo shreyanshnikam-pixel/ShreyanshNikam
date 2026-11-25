@@ -172,7 +172,7 @@ class Timeline:
 
 def extra_args(p):
     p.add_argument('--fps', type=int, default=C.FPS,
-                   help='frames per second (e.g. 24, 60, 120, 240; default 24)')
+                   help='frames per second (e.g. 24, 60, 100, 120, 240; default 24; 100 fps = 2000 frames for 20 s)')
     p.add_argument('--duration', type=float, default=None,
                    help='clip duration in seconds (default 20 s; e.g. --fps 240 --duration 5 -> 1200 frames)')
     p.add_argument('--total-frames', type=int, default=None,
@@ -283,15 +283,30 @@ def drive_mapping_channel(nt, mapping_node, input_name, axis_idx, expression):
 
 
 def safe_load_image(path, non_color=False):
-    if path and os.path.exists(path):
-        img = bpy.data.images.load(path, check_existing=True)
-        if non_color:
-            try:
-                img.colorspace_settings.name = 'Non-Color'
-            except TypeError:
-                pass
-        return img
+    if path:
+        ap = os.path.abspath(path)
+        if os.path.exists(ap):
+            img = bpy.data.images.load(ap, check_existing=True)
+            if non_color:
+                try:
+                    img.colorspace_settings.name = 'Non-Color'
+                except TypeError:
+                    pass
+            return img
     return None
+
+
+def enable_caustics_light(light_obj):
+    """Enable MNEE shadow caustics on a light without emitting spurious Blender 4.x warnings."""
+    ld = getattr(light_obj, 'data', None)
+    lc = getattr(ld, 'cycles', None)
+    if lc is not None and hasattr(lc, 'is_caustics_light'):
+        lc.is_caustics_light = True
+        return
+    if ld is not None and hasattr(ld, 'is_caustics_light'):
+        ld.is_caustics_light = True
+        return
+    C.caustics_light(light_obj)
 
 
 def disable_shadow_rays(obj):
@@ -489,7 +504,7 @@ def build_world_and_sun(scene, col, tl, use_caustics=True):
     sun = C.sun_lamp('DAWN_SUN', elevation=4.5, azimuth=72.0, energy=1.6, angle=0.65, col=col,
                      color=(1.0, 0.78, 0.60))
     if use_caustics:
-        C.caustics_light(sun)
+        enable_caustics_light(sun)
     for u, en in ((0.000, 0.55), (0.110, 0.85), (0.195, 0.25), (0.218, 0.25),
                   (0.235, 2.0), (0.640, 2.3), (0.940, 2.7)):
         sun.data.energy = en
@@ -1318,7 +1333,7 @@ def build_airliner(col, repo, args, tl, use_caustics=True):
         sp.rotation_euler = (0.0, math.pi * 0.5 + C.deg(3.0), 0.0)
         sp.parent = airliner
         if use_caustics:
-            C.caustics_light(sp)
+            enable_caustics_light(sp)
         ext_extras.append(sp)
 
     # Wingtip vortices (time-scaled lifetime & count for any FPS)
@@ -2387,9 +2402,17 @@ def build_compositor(scene, tl):
     glare = nt.nodes.new('CompositorNodeGlare')
     glare.glare_type = 'FOG_GLOW'
     glare.quality = 'HIGH'
-    glare.threshold = 1.6
-    glare.size = 7
-    glare.mix = -0.78
+    if 'Threshold' in glare.inputs:
+        # Blender 4.4+ / 4.5 LTS socket-based Glare parameters
+        glare.inputs['Threshold'].default_value = 1.6
+        if 'Size' in glare.inputs:
+            glare.inputs['Size'].default_value = 0.75
+        if 'Strength' in glare.inputs:
+            glare.inputs['Strength'].default_value = 0.24
+    else:
+        glare.threshold = 1.6
+        glare.size = 7
+        glare.mix = -0.78
     nt.links.new(rl.outputs['Image'], glare.inputs['Image'])
 
     mix_w = nt.nodes.new('CompositorNodeMixRGB')
@@ -2419,15 +2442,15 @@ def build_compositor(scene, tl):
 def resolve_timeline(args):
     """Determine (Timeline, render_f0, render_f1) from --fps, --duration, --total-frames, --frames, and --shot."""
     fps = max(1, int(args.fps))
+    dur = DEFAULT_DURATION_S if args.duration is None else max(0.25, float(args.duration))
     if args.total_frames is not None:
-        total = int(args.total_frames)
-    elif args.duration is not None:
-        total = max(24, int(round(args.duration * fps)))
-    elif args.f0 == 1 and args.f1 != 480:
-        # User explicitly passed a custom full range like `--frames 1-1200` or `--frames 1-2000`
-        total = args.f1
+        total = max(24, int(args.total_frames))
     else:
-        total = max(24, int(round(DEFAULT_DURATION_S * fps)))
+        total = max(24, int(round(dur * fps)))
+        # If the user explicitly asked for a frame beyond the default duration (e.g. --frames 1-2000 at 24 fps),
+        # scale the timeline to fit rather than clipping their requested range.
+        if args.frames != '1-480' and args.f1 > total:
+            total = args.f1
 
     tl = Timeline(total, fps)
     if args.shot is not None:
