@@ -12,18 +12,18 @@ Legend: `[x]` done, `[~]` started, `[ ]` not started.
 
 - [x] Repo scaffold, vendor libraries, shared CSS (`css/site.css`), shared behaviour (`js/core.js`)
 - [x] Assets gathered so far (see section 6): Poly Haven snow HDRI and snow texture, the 747SP model, the Listener models, Echo audio, Sky Sentry voice lines
-- [ ] Home page (`index.html` + `js/world.js`): icy world, 7 sections, particles, flash transitions
-- [ ] Projects page (`projects.html` + `js/projects.js`): two ice blocks, hover crack, fly-in
-- [ ] Sky Sentry page (`sky-sentry.html` + `js/sky.js`): real-time version of the film with live overlays; film slots wired for the Cycles renders
-- [ ] Echo page (`echo.html` + `js/echo.js`): ice cave descent into the mine, sonar, spatial audio, the Listener, the scare
-- [ ] Credits page (`credits.html`)
-- [ ] Blender film kit (`blender/`): scripts that build each film scene, render settings, commands
-- [ ] Film renders (needs Shreyansh's GPU machine; he will say when he is on it)
+- [x] Home page (`index.html` + `js/world.js`): icy world, 8 sections, monolith → particles → cubes, glacier strata, pool dive, award shards (pinned), prisms, noise white-flash transitions. Checked headless at 1440 and 390, no console errors. TODO: real-browser pass, swimmer is a simple silhouette (replace with Mixamo swimmer), DOF/motion blur not added
+- [~] Projects page (agent working) (`projects.html` + `js/projects.js`): two ice blocks, hover crack, fly-in
+- [~] Sky Sentry page (agent working) (`sky-sentry.html` + `js/sky.js`): real-time version of the film with live overlays; film slots wired for the Cycles renders
+- [~] Echo page (agent working) (`echo.html` + `js/echo.js`): ice cave descent into the mine, sonar, spatial audio, the Listener, the scare
+- [~] Credits page (agent working) (`credits.html`)
+- [~] Blender film kit (agent working) (`blender/`): scripts that build each film scene, render settings, commands
+- [~] Film renders: Shreyansh is on his Windows laptop with a GPU (2026-11-25). Claude can't run Blender there (the device shell is a Linux VM without GPU). Plan: he connects Documents\ShreyanshNikam to the chat; we put the blender/ kit + render_films.bat there; he double-clicks; frames come back through the connected folder; encode with blender/encode.sh into assets/films/.
 - [ ] Assets that need Shreyansh's logins (Sketchfab, Mixamo, Fab): he will log in on the built-in browser so the free ones can be downloaded (see 6.3)
 - [ ] Audit and verify (section 10 of the brief): real browser, 1440 / 768 / 390, reduced motion, console, frame rate, load size
 - [ ] GitHub: push this repo to `github.com/shreyanshnikam-pixel/ShreyanshNikam` (the repo must first be created on GitHub, empty)
 
-Last worked on: scaffold + this plan (2026-11-25).
+Last worked on: home page done; four agents building Projects, Sky Sentry, Echo, Credits + film kit (2026-11-25).
 
 ---
 
