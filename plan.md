@@ -11,19 +11,19 @@ reproduced word for word in **Appendix A** and in `docs/original-prompt.md`.
 Legend: `[x]` done, `[~]` started, `[ ]` not started.
 
 - [x] Repo scaffold, vendor libraries, shared CSS (`css/site.css`), shared behaviour (`js/core.js`)
-- [x] Assets gathered so far (see section 6): Poly Haven snow HDRI and snow texture, the 747SP model, the Listener models, Echo audio, Sky Sentry voice lines
-- [x] Home page (`index.html` + `js/world.js`): icy world, 8 sections, monolith → particles → cubes, glacier strata, pool dive, award shards (pinned), prisms, noise white-flash transitions. Checked headless at 1440 and 390, no console errors. TODO: real-browser pass, swimmer is a simple silhouette (replace with Mixamo swimmer), DOF/motion blur not added
-- [~] Projects page (agent working) (`projects.html` + `js/projects.js`): two ice blocks, hover crack, fly-in
-- [~] Sky Sentry page (agent working) (`sky-sentry.html` + `js/sky.js`): real-time version of the film with live overlays; film slots wired for the Cycles renders
-- [~] Echo page (agent working) (`echo.html` + `js/echo.js`): ice cave descent into the mine, sonar, spatial audio, the Listener, the scare
-- [~] Credits page (agent working) (`credits.html`)
-- [~] Blender film kit (agent working) (`blender/`): scripts that build each film scene, render settings, commands
-- [~] Film renders: Shreyansh is on his Windows laptop with a GPU (2026-11-25). Claude can't run Blender there (the device shell is a Linux VM without GPU). Plan: he connects Documents\ShreyanshNikam to the chat; we put the blender/ kit + render_films.bat there; he double-clicks; frames come back through the connected folder; encode with blender/encode.sh into assets/films/.
-- [ ] Assets that need Shreyansh's logins (Sketchfab, Mixamo, Fab): he will log in on the built-in browser so the free ones can be downloaded (see 6.3)
-- [ ] Audit and verify (section 10 of the brief): real browser, 1440 / 768 / 390, reduced motion, console, frame rate, load size
-- [ ] GitHub: push this repo to `github.com/shreyanshnikam-pixel/ShreyanshNikam` (the repo must first be created on GitHub, empty)
+- [x] Free CC0 assets gathered and credited (`credits.html`, see section 6): Poly Haven snow/overcast/frozen-lake HDRIs, snow/tile/wood/grate/rubber textures, ambientCG ice/snow/metal-plates/acoustic-foam PBR sets, Poly Haven ATC cab props (desk, laptop, clipboard, cart, pipes, camera, clock), the 747SP model, the Listener models, Echo audio, Sky Sentry voice lines
+- [x] Home page (`index.html` + `js/world.js`): icy world, 8 sections, monolith → particles → cubes, glacier strata, pool dive, award shards (pinned), prisms, frosted ice & snowflakes, noise white-flash transitions
+- [x] Projects page (`projects.html` + `js/projects.js`): two frosted ice blocks, hover crack, fly-in, keyboard/a11y polish
+- [x] Sky Sentry page (`sky-sentry.html` + `js/sky.js` + `js/film.js`): photorealistic 747SP PBR, FAA ATC tower cab, Canada geese, cinematic camera angles, live overlays, Cloudflare R2 / external `baseUrl` film player wired for the Cycles renders
+- [x] Echo page (`echo.html` + `js/echo.js`): ice cave descent into the mine, sonar, spatial audio, the Listener, the scare, reduced-motion still fallback
+- [x] Credits page (`credits.html`): all CC0 assets, creators, sources, licences, and teammate credits (Sky Sentry: Atharv Sharma, Pranav Atreya, Vivan Chowdhury; Echo: Atharv Sharma, Elias Chen)
+- [x] Blender film kit + Cloudflare R2 pipeline (`blender/`): `common.py`, `build_pool.py`, `build_sky.py`, `build_echo_descent.py`, `make_textures.py`, `encode.py`/`encode.sh`, `render_films.bat`, `upload_r2.py`/`upload_r2.bat`, `r2-cors.json`, `blender/README.md` — all 3 builders smoke-tested cleanly in Blender 4.5.9 LTS with `--preset 100fps`
+- [~] Full GPU film renders (`blender/render_films.bat --preset 100fps` writing to `D:\ShreyanshNikam-renders`, then `blender/upload_r2.bat` to publish frames to Cloudflare R2 and commit `manifest.json` with `baseUrl`)
+- [ ] Optional login-gated assets (Sketchfab, Mixamo, Fab — see §6.3): rigged human characters / extra models if Shreyansh wants to sign in and drop them into the existing empties
+- [x] Real-browser audit and verification (section 10 of the brief): verified across all 5 pages at 1440 / 768 / 390 + reduced motion, 0 console/page errors, 0 HTTP 404s, 0px horizontal overflow
+- [x] GitHub: merged all feature branches and pushed `main` to `github.com/shreyanshnikam-pixel/ShreyanshNikam`
 
-Last worked on: home page done; four agents building Projects, Sky Sentry, Echo, Credits + film kit (2026-11-25).
+Last worked on: merged all 5 feature branches into `main`, unified `build_sky.py` + `common.py` CLI/presets, ran Blender 4.5.9 LTS smoke tests and integrated 5-page Playwright verification, and pushed `main` to `origin` (2026-11-25).
 
 ---
 
@@ -31,8 +31,9 @@ Last worked on: home page done; four agents building Projects, Sky Sentry, Echo,
 
 | Question | Answer |
 |---|---|
-| Films rendered in Blender Cycles? | Build everything else now. He will switch to his GPU computer later and say when; then make the films. Until then each film scene runs as real-time 3D, with a frame-scrub player ready to swap in renders. |
-| Assets behind logins (Mixamo, Sketchfab, Fab/Quixel, TurboSquid) | He will log in on the built-in browser; download the **free** ones only. Credit each on the Credits page. |
+| Films rendered in Blender Cycles? | All 3 Blender Cycles builders (`pool`, `sky`, `echo_descent`), `render_films.bat`, `encode.py`, and Cloudflare R2 upload scripts are ready and smoke-tested on Blender 4.5.9 LTS (RTX 3060 OptiX). Until full GPU renders are run, each film scene runs as real-time 3D with `js/film.js` ready to swap in rendered frames. |
+| Frame rate, render drive, and hosting for film sequences | Target **100 fps** (`--preset 100fps`) for ultra-smooth scroll scrubbing (`pool` 1,000 frames, `sky` 2,000 frames, `echo_descent` 600 frames); write large raw renders to **`D:\ShreyanshNikam-renders`** (keeping `C:` free); host encoded frame sequences externally on **Cloudflare R2** via `manifest.json` `"baseUrl"` (CORS-enabled in `js/film.js` + `blender/r2-cors.json` + `blender/upload_r2.bat`) so GitHub/Netlify stays lightweight. |
+| Assets behind logins (Mixamo, Sketchfab, Fab/Quixel, TurboSquid) | Free CC0 assets (Poly Haven + ambientCG) are already downloaded and credited. Login-gated free assets (§6.3) remain optional; credit each on the Credits page if added later. |
 | Where it lives | Static site for **Netlify** only. The old Claude canvas stays as the previous version. |
 | Pacing | Do it all, fast. |
 | Repo | Git repo named **ShreyanshNikam**, with this `plan.md`. |
@@ -42,9 +43,9 @@ Facts that must stay exactly right (do not invent anything about Shreyansh):
 - Schedule: English 1 (Honors), Modern World History (Honors), Geometry (Honors), Biology (Honors), French 2 (College Prep).
 - LHS facts (sources: LHS School Profile 2024–2025; College Board AP School Honor Roll, New Jersey, 2025): 39 AP courses, 13 dual-enrollment courses, 5 academic pathways and selective programs, 474 AP Scholars in one year, AP School Honor Roll at the Platinum level in 2025.
 - LHS Swim; LHS Hack Club Vice President (club of 30 to 50 students); hackathons and game jams.
-- Sky Sentry (HackPHS, October 2026): Best Use of Solana, Best Use of TigerData, 5th place overall. Live site https://lancerhacks-rvs8r.ondigitalocean.app, code https://github.com/pranav-atreya10/hackphs-dot. Credit line exactly: **"Built with Atharv Sharma, Vivan Chowdhury, and Pranav Atreya at HackPHS 2026"**
-- Echo (Hack Club Haven Princeton, November 14 to 15, 2026): 1st prize, best overall. Play https://burthebear.itch.io/echo-hack-haven-princeton, code https://github.com/BurTheBear/HackHaven. Shreyansh made 18 of the 89 commits. Credit line exactly: **"Built with Atharv Sharma and Elias Chen at Hack Haven Princeton 2026"**
-- Things still unconfirmed with Shreyansh: the exact "Vice President" title, Elias's last name (Chen), and who built Sky Sentry's report step (Atharv's site credits Atharv with it).
+- Sky Sentry (HackPHS, October 2026): Best Use of Solana, Best Use of TigerData, 5th place overall. Live site https://lancerhacks-rvs8r.ondigitalocean.app, code https://github.com/pranav-atreya10/hackphs-dot. Teammates explicitly confirmed by Shreyansh: Atharv Sharma, Pranav Atreya, and Vivan Chowdhury. Credit line exactly: **"Built with Atharv Sharma, Vivan Chowdhury, and Pranav Atreya at HackPHS 2026"**
+- Echo (Hack Club Haven Princeton, November 14 to 15, 2026): 1st prize, best overall. Play https://burthebear.itch.io/echo-hack-haven-princeton, code https://github.com/BurTheBear/HackHaven. Shreyansh made 18 of the 89 commits. Teammates explicitly confirmed by Shreyansh: Atharv Sharma and Elias Chen. Credit line exactly: **"Built with Atharv Sharma and Elias Chen at Hack Haven Princeton 2026"**
+- Things still unconfirmed with Shreyansh: the exact "Vice President" title, and who built Sky Sentry's report step (Atharv's site credits Atharv with it).
 
 ---
 

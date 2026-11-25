@@ -78,13 +78,6 @@ TOWER_CAB_Z = 34.0
 SENTRY_POS = Vector((-45.0, -74.0, 1.65))
 DRONE_POS = Vector((-290.0, -110.0, 18.0))
 
-# Resolution tiers (desktop 16:9, portrait 9:16)
-UHD_RES = {
-    '1080p': {'desktop': (1920, 1080), 'portrait': (1080, 1920)},
-    '4k':    {'desktop': (3840, 2160), 'portrait': (2160, 3840)},
-    '8k':    {'desktop': (7680, 4320), 'portrait': (4320, 7680)},
-}
-
 # Normalized shot boundaries u in [0, 1] aligned with js/sky.js
 SHOT_U = {
     1: (0.000, 0.110),   # Cruise above clouds (pre-dawn cockpit)
@@ -171,14 +164,12 @@ class Timeline:
 
 
 def extra_args(p):
-    p.add_argument('--fps', type=int, default=C.FPS,
-                   help='frames per second (e.g. 24, 60, 100, 120, 240; default 24; 100 fps = 2000 frames for 20 s)')
     p.add_argument('--duration', type=float, default=None,
                    help='clip duration in seconds (default 20 s; e.g. --fps 240 --duration 5 -> 1200 frames)')
     p.add_argument('--total-frames', type=int, default=None,
                    help='full timeline length when rendering a sub-range with --frames (for multi-machine splits)')
-    p.add_argument('--uhd', choices=['1080p', '4k', '8k'], default='1080p',
-                   help='resolution tier: 1080p (1920x1080), 4k (3840x2160), or 8k (7680x4320) desktop/portrait')
+    p.add_argument('--uhd', choices=['1080p', '4k', '8k'], default=None,
+                   help='optional resolution tier override for --res (1080p, 4k, or 8k, preserving desktop/portrait)')
     p.add_argument('--shot', type=int, choices=range(1, 9), default=None,
                    help='override --frames to render a single storyboard shot (1-8)')
     p.add_argument('--designation', default='09', help='runway designation for make_textures.py (default 09)')
@@ -3086,22 +3077,26 @@ def build_compositor(scene, tl):
 
 # ------------------------------------------------------------------------------------------------ main
 def resolve_timeline(args):
-    """Determine (Timeline, render_f0, render_f1) from --fps, --duration, --total-frames, --frames, and --shot."""
+    """Determine (Timeline, render_f0, render_f1) from --fps, --preset, --duration, --total-frames, --frames, and --shot."""
+    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+    frames_explicit = C._flag_given(argv, '--frames')
     fps = max(1, int(args.fps))
     dur = DEFAULT_DURATION_S if args.duration is None else max(0.25, float(args.duration))
     if args.total_frames is not None:
         total = max(24, int(args.total_frames))
+    elif args.preset == '8k240' and args.duration is None and not frames_explicit:
+        total = max(24, int(args.f1))
     else:
         total = max(24, int(round(dur * fps)))
         # If the user explicitly asked for a frame beyond the default duration (e.g. --frames 1-2000 at 24 fps),
         # scale the timeline to fit rather than clipping their requested range.
-        if args.frames != '1-480' and args.f1 > total:
+        if frames_explicit and args.f1 > total:
             total = args.f1
 
     tl = Timeline(total, fps)
     if args.shot is not None:
         f0, f1 = tl.shot_range(args.shot)
-    elif args.frames == '1-480' and args.total_frames is None and (args.duration is not None or fps != C.FPS):
+    elif not frames_explicit and args.total_frames is None and (args.duration is not None or fps != C.FPS):
         f0, f1 = 1, tl.total
     else:
         f0, f1 = max(1, args.f0), min(tl.total, args.f1)
@@ -3115,6 +3110,8 @@ def main():
         {'out': 'renders/sky', 'frames': '1-480', 'samples': 512, 'min_samples': 64},
         extra_args,
     )
+    if args.uhd is not None:
+        args.res = C.upgrade_res_tier(args.res, args.uhd)
     tl, f0, f1 = resolve_timeline(args)
     args.f0, args.f1 = f0, f1
 
@@ -3122,10 +3119,10 @@ def main():
     use_caustics = not args.no_caustics
     C.setup_render(scene, args, caustics=use_caustics, volumes=not args.no_clouds)
 
-    # Apply configured FPS (24/60/120/240), UHD resolution tier (1080p/4K/8K), and deep Cycles light paths
+    # Apply configured FPS (24/60/100/120/240), resolution tier from common.RES, and deep Cycles light paths
     scene.render.fps = tl.fps
     scene.render.fps_base = 1.0
-    w, h = UHD_RES[args.uhd][args.res]
+    w, h = C.RES[args.res]
     scene.render.resolution_x, scene.render.resolution_y = w, h
     scene.render.resolution_percentage = 50 if args.preview else 100
     scene.cycles.diffuse_bounces = 6
@@ -3134,8 +3131,9 @@ def main():
         C.try_set(scene.cycles, 'volume_step_rate', 2.5 if args.preview else 1.5)
         C.try_set(scene.cycles, 'volume_max_steps', 512)
 
+    tier = '8k' if '8k' in args.res else ('4k' if '4k' in args.res else '1080p')
     print('[film-kit] Sky Sentry timeline: %d frames @ %d fps (%.2f s), %dx%d (%s %s), rendering %d-%d'
-          % (tl.total, tl.fps, tl.duration, w, h, args.uhd, args.res, args.f0, args.f1))
+          % (tl.total, tl.fps, tl.duration, w, h, tier, args.res, args.f0, args.f1))
 
     repo = C.repo_root()
     tex_dir = ensure_textures(args.designation)
