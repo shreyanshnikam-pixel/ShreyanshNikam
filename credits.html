@@ -20,14 +20,15 @@
 .cr-block h2.display{font-size:clamp(30px,3.6vw,56px)}
 .cr-block .intro{margin:18px 0 0;color:var(--slate);font-size:16px}
 .tbl{margin-top:30px;padding:8px 22px 10px;overflow:hidden}
-table.cr{width:100%;border-collapse:collapse;font-size:15px;line-height:1.5}
+table.cr{width:100%;border-collapse:collapse;font-size:15px;line-height:1.5;table-layout:fixed}
 table.cr caption{text-align:left;padding:14px 0 12px;font:500 11.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+table.cr thead th:nth-child(1){width:21%}table.cr thead th:nth-child(2){width:25%}table.cr thead th:nth-child(3){width:19%}table.cr thead th:nth-child(4){width:21%}table.cr thead th:nth-child(5){width:14%}
 table.cr thead th{text-align:left;font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:10px 14px 10px 0;border-bottom:1px solid var(--glacier);font-weight:500}
 table.cr tbody th,table.cr td{text-align:left;vertical-align:top;padding:15px 14px 15px 0;border-bottom:1px solid var(--glacier);overflow-wrap:anywhere}
 table.cr tbody tr:last-child th,table.cr tbody tr:last-child td{border-bottom:0}
-table.cr tbody th{font-weight:600;color:var(--ink);width:22%}
-table.cr td.use{color:var(--slate);width:28%}
-table.cr td.lic{font:500 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--deep);white-space:nowrap}
+table.cr tbody th{font-weight:600;color:var(--ink)}
+table.cr td.use{color:var(--slate)}
+table.cr td.lic{font:500 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--deep);overflow-wrap:break-word}
 table.cr td a{text-decoration:none;border-bottom:1px solid var(--glacier);transition:border-color .4s var(--ease)}
 table.cr td a:hover{border-color:var(--ink)}
 table.cr .none td{color:var(--slate);font-style:italic}
@@ -37,19 +38,19 @@ table.cr .none td{color:var(--slate);font-style:italic}
 .built h2.display{font-size:clamp(30px,3.6vw,56px)}
 .built .lead{margin-top:22px}
 /* phones: each row becomes a stacked card with its own labels, no horizontal scrolling */
-@media (max-width:760px){
+@media (max-width:900px){
   .cr-notes{grid-template-columns:1fr}
   .tbl,.later{padding:4px 16px 6px}
+  table.cr{table-layout:auto}
   table.cr,table.cr caption,table.cr tbody,table.cr tr,table.cr th,table.cr td{display:block;width:auto!important}
   table.cr thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   table.cr tbody tr{padding:16px 0;border-bottom:1px solid var(--glacier)}
   table.cr tbody tr:last-child{border-bottom:0}
   table.cr tbody th,table.cr td{border:0;padding:3px 0}
   table.cr tbody th{font-size:16.5px;padding-bottom:8px}
-  table.cr td{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px}
-  table.cr td::before{content:attr(data-label);font:500 10.5px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
-  table.cr td.lic{white-space:normal}
-  table.cr .none td{display:block}table.cr .none td::before{content:none}
+  table.cr td{position:relative;padding:3px 0 3px 94px;min-height:26px}
+  table.cr td::before{content:attr(data-label);position:absolute;left:0;top:5px;width:86px;font:500 10.5px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  table.cr .none td{padding-left:0}table.cr .none td::before{content:none}
 }
 </style>
 </head>
