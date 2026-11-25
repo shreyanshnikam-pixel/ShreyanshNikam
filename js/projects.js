@@ -278,31 +278,30 @@
     return { i, d, u, group, widen, mesh, mat, glow, text, etchT, crack: ck, bubbles, light, shadow, pool, base: V(0, 0, 0), sc: 1, st: { h: 0, dim: 0 }, href: links[i].getAttribute('href'), ph: i * 2.1 };
   });
 
-  // ---------- layout: each block sits where its link's empty space is on screen ----------
-  const CAM0 = V(0, 1.5, 13), LOOK0 = V(0, 0.55, 0), D = CAM0.distanceTo(LOOK0);
-  let W = 1, H = 1, FOV = 32;
+  // ---------- layout: the canvas is fixed behind the whole page; each block sits where its link's empty space is on screen ----------
+  const D = 13.03, PITCH0 = -0.073;
+  let W = 1, H = 1, FOV = 32, scrollK = 0;
+  const LOOK = V(0, 0, 0), LC = new T.PerspectiveCamera(32, 1, 0.1, 700);
+  // scroll glides the camera forward and a little down over the valley, so the world drifts behind the text below the stage
+  const camPose = (k, cam) => { const pitch = PITCH0 - 0.055 * k; cam.position.set(0, 1.5 + 0.6 * k, 13 - 5 * k); LOOK.set(0, Math.sin(pitch), -Math.cos(pitch)).multiplyScalar(D).add(cam.position); cam.lookAt(LOOK); cam.updateMatrixWorld(); };
+  const toPlane = (cam, cx, cy, out) => { const f = cam.getWorldDirection(tmpF), dir = V(cx / W * 2 - 1, -(cy / H * 2 - 1), 0.5).unproject(cam).sub(cam.position).normalize(); return out.copy(cam.position).addScaledVector(dir, D / dir.dot(f)); };
+  const tmpF = V(0, 0, 0);
+  const sizeOf = (s) => Math.max(40, Math.min(s.height * 0.86, s.width * 0.9 / (ASP * 1.12))) * 2 * D * Math.tan(T.MathUtils.degToRad(FOV) / 2) / H;
+  const place = (cam) => { B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(); toPlane(cam, s.left + s.width / 2, s.top + s.height / 2, b.base); b.sc = sizeOf(s); b.light.distance = b.sc * 2.6; }); };
   const layout = () => {
-    const r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
+    W = Math.max(1, cv.clientWidth); H = Math.max(1, cv.clientHeight);
     R.setPixelRatio(DPR()); R.setSize(W, H, false); comp.setPixelRatio(DPR()); comp.setSize(W, H);
     grade.uniforms.uRes.value.set(W, H); bloom.resolution.set(W / 2, H / 2);
-    FOV = W / H < 0.9 ? 40 : 32; C.fov = FOV; C.aspect = W / H; C.updateProjectionMatrix();
-    C.position.copy(CAM0); C.lookAt(LOOK0); C.updateMatrixWorld();
-    const f = LOOK0.clone().sub(CAM0).normalize(), k = 2 * D * Math.tan(T.MathUtils.degToRad(FOV) / 2) / H;
-    let low = Infinity, avg = 0;
-    B.forEach((b, i) => {
-      const s = spaces[i].getBoundingClientRect(), cx = s.left + s.width / 2 - r.left, cy = s.top + s.height / 2 - r.top;
-      const dir = V(cx / W * 2 - 1, -(cy / H * 2 - 1), 0.5).unproject(C).sub(C.position).normalize();
-      b.base.copy(C.position).addScaledVector(dir, D / dir.dot(f));
-      const hPx = Math.max(40, Math.min(s.height * 0.86, s.width * 0.9 / (ASP * 1.12)));
-      b.sc = hPx * k; low = Math.min(low, b.base.y - b.sc / 2); avg += b.sc / B.length;
-      b.bubbles.material.uniforms.uScale.value = H; b.light.distance = b.sc * 2.6;
-    });
-    const gy = low - avg * 0.42; ground.position.y = gy; mtns.position.y = gy;
-    B.forEach((b) => { [b.shadow, b.pool].forEach((m, j) => { m.position.set(b.base.x, gy + 0.01 + j * 0.01, b.base.z); m.scale.set(b.sc * 1.5, 1, b.sc * 0.9); }); });
+    FOV = W / H < 0.9 ? 40 : 32; [C, LC].forEach((c) => { c.fov = FOV; c.aspect = W / H; c.updateProjectionMatrix(); });
+    // the ground sits under the blocks as they rest at the top of the page
+    camPose(0, LC); let low = Infinity, avg = 0; const pts = [];
+    B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(), p = toPlane(LC, s.left + s.width / 2, s.top + scrollY + s.height / 2, V(0, 0, 0)), sc = sizeOf(s); pts.push([p, sc]); low = Math.min(low, p.y - sc / 2); avg += sc / B.length; b.bubbles.material.uniforms.uScale.value = H; });
+    const gy = low - avg * 0.42; ground.position.y = gy; mtns.position.y = gy; banks.position.y = gy; mtnU.uGy.value = gy;
+    B.forEach((b, i) => { [b.shadow, b.pool].forEach((m, j) => { m.position.set(pts[i][0].x, gy + 0.01 + j * 0.01, pts[i][0].z); m.scale.set(pts[i][1] * 1.5, 1, pts[i][1] * 0.9); }); });
     snowU.uScale.value = H;
   };
-  const ro = window.ResizeObserver ? new ResizeObserver(() => layout()) : null;
-  if (ro) ro.observe(stage); else window.addEventListener('resize', layout);
+  window.addEventListener('resize', layout);
+  if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(document.body);
   layout();
 
   // ---------- hover: pointer raycast over the stage, plus hover and focus on the real links ----------
@@ -338,7 +337,7 @@
   let flying = false; const fl = { p: 0, i: -1, from: V(0, 0, 0), look: V(0, 0, 0), end: V(0, 0, 0), aim: V(0, 0, 0) };
   function fly(i) {
     if (flying) return; flying = true; setActive(i);
-    const b = B[i]; fl.i = i; fl.from.copy(C.position); fl.look.copy(LOOK0);
+    const b = B[i]; fl.i = i; fl.from.copy(C.position); fl.look.copy(LOOK);
     const dir = b.group.position.clone().sub(C.position).normalize();
     fl.end.copy(b.group.position).addScaledVector(dir, b.sc * DEP * 0.2); fl.aim.copy(b.group.position).addScaledVector(dir, 8);
     const o = { p: 0 };
@@ -347,16 +346,15 @@
   }
   window.addEventListener('pageshow', (e) => { if (!e.persisted) return; flying = false; fl.p = 0; fl.i = -1; if (flashEl) gsap.set(flashEl, { opacity: 0 }); active = -2; setActive(-1); });
 
-  // ---------- loop (paused when the tab is hidden or the stage is off screen) ----------
-  let visible = !document.hidden, onScreen = true, last = 0; const t0 = performance.now();
+  // ---------- loop (paused while the tab is hidden) ----------
+  let visible = !document.hidden, last = 0; const t0 = performance.now();
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
-  if (window.IntersectionObserver) new IntersectionObserver((en) => { onScreen = en[0].isIntersecting; }, { threshold: 0 }).observe(stage);
   const mouse = new T.Vector2(), mt = new T.Vector2();
   window.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') mt.set(e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1); }, { passive: true });
-  const look = V(0, 0, 0), tmp = V(0, 0, 0);
+  const look = V(0, 0, 0), tmp = V(0, 0, 0), sunP = V(0, 0, 0), fwd = V(0, 0, 0);
   function frame(now) {
     requestAnimationFrame(frame);
-    if (!visible || !onScreen) { last = now; return; }
+    if (!visible) { last = now; return; }
     const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; const t = (now - t0) / 1000, idle = rm ? 0 : 1;
     mouse.lerp(mt, 1 - Math.exp(-dt * 2.5));
     // camera: breathing and a little pointer parallax, or the flight
@@ -366,11 +364,18 @@
       look.lerpVectors(fl.look, fl.aim, e2); C.lookAt(look);
       C.fov = FOV * (1 - 0.12 * ss(0, 0.5, p) + 0.75 * Math.pow(ss(0.45, 1, p), 2)); C.updateProjectionMatrix();
       grade.uniforms.uFlash.value = ss(0.55, 1, p);
-      S.fog.density = 0.016 + (fl.i === 0 ? 0.05 : 0.02) * ss(0.4, 1, p);
+      S.fog.density = FOG_D + (fl.i === 0 ? 0.06 : 0.025) * ss(0.4, 1, p);
     } else {
-      C.position.copy(CAM0).add(tmp.set(mouse.x * 0.3 * idle + Math.sin(t * 0.3) * 0.05 * idle, -mouse.y * 0.18 * idle + Math.sin(t * 0.45) * 0.04 * idle, 0));
-      C.lookAt(LOOK0); grade.uniforms.uFlash.value = 0; S.fog.density = 0.016;
+      scrollK = Math.min(2.5, Math.max(0, scrollY / Math.max(1, innerHeight)));
+      camPose(scrollK, C); place(C);
+      C.position.add(tmp.set(mouse.x * 0.3 * idle + Math.sin(t * 0.3) * 0.05 * idle, -mouse.y * 0.18 * idle + Math.sin(t * 0.45) * 0.04 * idle, 0));
+      C.lookAt(LOOK); grade.uniforms.uFlash.value = 0; S.fog.density = FOG_D;
     }
+    // god rays follow the sun on screen and fade as it leaves the frame
+    sunP.copy(C.position).addScaledVector(SUN, 500).project(C);
+    const off = Math.max(Math.abs(sunP.x) - 1, Math.abs(sunP.y) - 1, 0), front = C.getWorldDirection(fwd).dot(SUN) > 0;
+    rays.uniforms.uSun.value.set(sunP.x * 0.5 + 0.5, sunP.y * 0.5 + 0.5); rays.uniforms.uAmt.value = front ? 0.55 * (1 - ss(0, 0.6, off)) : 0;
+    bankU.uT.value = rm ? 0 : t;
     // blocks: float, turn a little toward the pointer when hovered, widen, glow, crack, dim
     B.forEach((b) => {
       const { h, dim } = b.st, fp = flying && fl.i === b.i ? fl.p : 0, fo = flying && fl.i !== b.i ? ss(0, 0.5, fl.p) : 0;
@@ -384,7 +389,7 @@
       b.crack.uniforms.uK.value = h; b.crack.uniforms.uA.value = (1 - dim) * (1 - fo);
       b.bubbles.material.uniforms.uA.value = 1 - 0.6 * dim;
       b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.2 * h - 0.3 * dim); b.u.uH.value = h; b.u.uDim.value = dim;
-      b.shadow.material.uniforms.uA.value = 0.2 + 0.06 * h - 0.06 * dim; b.pool.material.uniforms.uA.value = 0.05 + 0.4 * h;
+      const near = 1 - ss(0.1, 0.6, scrollK); b.shadow.material.uniforms.uA.value = (0.2 + 0.06 * h - 0.06 * dim) * near; b.pool.material.uniforms.uA.value = (0.05 + 0.4 * h) * near;
     });
     grade.uniforms.uT.value = t;
     if (SN) { snowU.uT.value = t; snowU.uCam.value.copy(C.position); snowU.uWind.value = 1 + (flying ? fl.p * 6 : 0); }

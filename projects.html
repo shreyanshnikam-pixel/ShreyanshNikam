@@ -12,16 +12,21 @@
 .js-off .pre{display:none}
 /* ---- the stage: two ice blocks in 3D, with real links laid over them ---- */
 .pstage{position:relative;height:100vh;height:100svh;min-height:680px;padding:100px var(--pad) 66px;display:flex;flex-direction:column;overflow:hidden}
-.pstage .pgl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;pointer-events:none}
+.pgl{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;display:block;z-index:0;pointer-events:none}
+/* soft frosted scrims keep text AA where it sits on the 3D scene */
+.scrim{position:relative;isolation:isolate}
+.scrim::before{content:"";position:absolute;inset:-26px -48px -22px -36px;z-index:-1;border-radius:40px;background:radial-gradient(closest-side,rgba(244,247,250,.82) 55%,rgba(244,247,250,0));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);-webkit-mask-image:radial-gradient(closest-side,#000 60%,transparent);mask-image:radial-gradient(closest-side,#000 60%,transparent);pointer-events:none}
+.foot{background:rgba(244,247,250,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 .pstage .head{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;pointer-events:none}
 .pstage .head a{pointer-events:auto}
 .pstage h1.display{font-size:clamp(46px,6.4vw,112px)}
 .pstage h1 .dot{color:var(--deep)}
-.pstage .hint{text-align:right;max-width:30ch}
+.pstage .hint{text-align:right;max-width:30ch;color:#4F6172}
 .blks{position:relative;z-index:2;flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,5vw,96px);margin-top:clamp(16px,2.4vh,30px)}
 .blk{display:flex;flex-direction:column;min-height:0;color:inherit;text-decoration:none;border-radius:22px}
 .blk .space{position:relative;flex:1;min-height:0}
-.blk .cap{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-top:14px;border-top:1px solid var(--glacier);transition:opacity .6s var(--ease)}
+.blk .cap{position:relative;isolation:isolate;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-top:14px;border-top:1px solid var(--glacier);transition:opacity .6s var(--ease)}
+.blk .cap::before{content:"";position:absolute;inset:-1px -18px -14px;z-index:-1;border-radius:0 0 18px 18px;background:linear-gradient(rgba(244,247,250,.78),rgba(244,247,250,.55));-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .blk .cap .meta{display:block;margin-bottom:8px}
 .blk .cap .name{display:block;font:600 clamp(22px,2.3vw,36px)/1 var(--display);letter-spacing:-.03em}
 .blk .go{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--glacier);background:rgba(255,255,255,.6);font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;transition:background .5s var(--ease),color .5s var(--ease),border-color .5s var(--ease)}
@@ -90,15 +95,16 @@ html.gl .etch{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0
 <div class="hudbar br hud" aria-hidden="true"><span data-hud="pct">000%</span></div>
 <div class="hudbar lv hud" aria-hidden="true">40.7876° N · 74.3274° W · Livingston, NJ</div>
 
+<canvas class="pgl" id="pgl" aria-hidden="true"></canvas>
+
 <main id="main">
   <section class="pstage" data-section="Two blocks of ice" aria-labelledby="ptitle">
-    <canvas class="pgl" id="pgl" aria-hidden="true"></canvas>
     <div class="head">
-      <div>
+      <div class="scrim">
         <p class="hud" data-intro-fade>Fall 2026 · Two competitions, four awards</p>
         <h1 class="display" id="ptitle" data-intro>Projects<span class="dot">.</span></h1>
       </div>
-      <p class="hud hint" data-intro-fade>Hover a block to crack the ice. Choose one to fly in.</p>
+      <p class="hud hint scrim" data-intro-fade>Hover a block to crack the ice. Choose one to fly in.</p>
     </div>
     <div class="blks">
       <a class="blk" href="sky-sentry.html" data-i="0">
@@ -129,8 +135,10 @@ html.gl .etch{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0
   </section>
 
   <section class="pdetail" id="details" data-section="Details">
-    <p class="label">Fall 2026 · Details</p>
-    <h2 class="display" data-split>Two projects, four awards.</h2>
+    <div class="scrim" style="display:inline-block">
+      <p class="label">Fall 2026 · Details</p>
+      <h2 class="display" data-split>Two projects, four awards.</h2>
+    </div>
     <div class="pgrid" data-stagger>
       <article class="proj glass tilt" aria-labelledby="p-sky">
         <p class="hud">01 · HackPHS · October 2026</p>
