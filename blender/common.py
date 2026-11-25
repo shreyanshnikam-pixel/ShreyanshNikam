@@ -373,6 +373,12 @@ def sky_node(world):
     return world.node_tree.nodes[world['sky_node']]
 
 
+def sun_vector(elevation, azimuth):
+    """Unit vector pointing towards the sun. Degrees; azimuth 0 = +Y, 90 = +X."""
+    el, az = deg(elevation), deg(azimuth)
+    return Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
+
+
 def sun_lamp(name='SUN', elevation=40.0, azimuth=30.0, energy=4.0, angle=0.53, col=None, color=(1.0, 0.97, 0.92)):
     """Sun lamp pointing down from (elevation, azimuth) in degrees; azimuth 0 = light comes from +Y."""
     ld = bpy.data.lights.new(name, 'SUN')
@@ -380,8 +386,8 @@ def sun_lamp(name='SUN', elevation=40.0, azimuth=30.0, energy=4.0, angle=0.53, c
     ld.angle = deg(angle)
     ld.color = color
     obj = link(bpy.data.objects.new(name, ld), col)
-    # a sun shines along its local -Z; tilt it so it comes from the given direction
-    obj.rotation_euler = Euler((deg(90 - elevation), 0.0, deg(180 + azimuth)), 'XYZ')
+    # a sun shines along its local -Z: aim -Z opposite the direction the light comes from
+    obj.rotation_euler = (-sun_vector(elevation, azimuth)).to_track_quat('-Z', 'Y').to_euler()
     return obj
 
 
@@ -540,10 +546,20 @@ def mesh_object(name, build, col=None, location=(0, 0, 0), smooth=False):
     return obj
 
 
+def _fit(bm, size):
+    """Scale a fresh primitive so its bounding box is exactly `size` (independent of how a Blender version
+    interprets the primitive's own size argument)."""
+    n = len(size)
+    lo = [min(v.co[i] for v in bm.verts) for i in range(n)]
+    hi = [max(v.co[i] for v in bm.verts) for i in range(n)]
+    k = [size[i] / (hi[i] - lo[i]) if hi[i] - lo[i] > 1e-9 else 1.0 for i in range(n)] + [1.0] * (3 - n)
+    bmesh.ops.scale(bm, vec=Vector(k[:3]), verts=bm.verts)
+
+
 def box(name, size=(1, 1, 1), location=(0, 0, 0), col=None, mat=None):
     def b(bm):
         bmesh.ops.create_cube(bm, size=1.0, calc_uvs=True)
-        bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
+        _fit(bm, size)
     o = mesh_object(name, b, col, location)
     if mat:
         assign(o, mat)
@@ -552,8 +568,13 @@ def box(name, size=(1, 1, 1), location=(0, 0, 0), col=None, mat=None):
 
 def plane(name, size=(1, 1), location=(0, 0, 0), col=None, mat=None, segments=(1, 1)):
     def b(bm):
-        bmesh.ops.create_grid(bm, x_segments=max(1, segments[0]), y_segments=max(1, segments[1]), size=0.5, calc_uvs=True)
-        bmesh.ops.scale(bm, vec=Vector((size[0], size[1], 1)), verts=bm.verts)
+        bmesh.ops.create_grid(bm, x_segments=max(1, segments[0]), y_segments=max(1, segments[1]), size=1.0, calc_uvs=False)
+        _fit(bm, size)
+        # UVs 0..1 across the plane (scale them to metres with build_pool.scale_uvs for procedural tiles)
+        uv = bm.loops.layers.uv.verify()
+        for f in bm.faces:
+            for lp in f.loops:
+                lp[uv].uv = (lp.vert.co.x / size[0] + 0.5, lp.vert.co.y / size[1] + 0.5)
     o = mesh_object(name, b, col, location)
     if mat:
         assign(o, mat)
@@ -682,11 +703,9 @@ def hold_cut(obj, frame_end, data_paths=('location', 'rotation_euler')):
         for fc in fcs:
             v0 = fc.evaluate(frame_end)
             v1 = fc.evaluate(frame_end + 1)
-            fc.keyframe_points.insert(frame_end + 0.49, v0)
+            k = fc.keyframe_points.insert(frame_end + 0.49, v0)
+            k.interpolation = 'CONSTANT'   # jump happens at frame_end + 0.51, outside both shutters
             fc.keyframe_points.insert(frame_end + 0.51, v1)
-            for kp in fc.keyframe_points:
-                if frame_end <= kp.co.x <= frame_end + 1:
-                    kp.interpolation = 'CONSTANT' if kp.co.x == frame_end + 0.49 else kp.interpolation
 
 
 # --------------------------------------------------------------------------------------------------

@@ -223,13 +223,13 @@
     const railShape = new T.Shape([new T.Vector2(-0.035, 0), new T.Vector2(0.035, 0), new T.Vector2(0.035, 0.012), new T.Vector2(0.008, 0.02), new T.Vector2(0.008, 0.07), new T.Vector2(0.022, 0.078), new T.Vector2(0.022, 0.1), new T.Vector2(-0.022, 0.1), new T.Vector2(-0.022, 0.078), new T.Vector2(-0.008, 0.07), new T.Vector2(-0.008, 0.02), new T.Vector2(-0.035, 0.012)]);
     for (const sg of [-0.5, 0.5]) {
       const rp = []; for (let k = 0; k <= 220; k++) rp.push(at(sl0 + k / 220 * (LT - sl0 - 2), sg, 0.11));
-      const path = new T.CatmullRomCurve3(rp); const g = new T.TubeGeometry(path, 700, 0.03, 6, false); g.scale && 0; // round fallback
+      const path = new T.CatmullRomCurve3(rp);
       // an extruded rail profile, kept upright with frames built from the path
       const N = 700, prof2 = railShape.getPoints(1), pos = [], idx = [];
       for (let i = 0; i <= N; i++) { const t = i / N, P0 = path.getPointAt(t), Tn = path.getTangentAt(t), sd = V().crossVectors(Tn, up0).normalize(), uu = V().crossVectors(sd, Tn).normalize(); prof2.forEach((p) => { const v = P0.clone().addScaledVector(sd, p.x).addScaledVector(uu, p.y - 0.05); pos.push(v.x, v.y, v.z); }); }
       const n = prof2.length; for (let i = 0; i < N; i++) for (let j = 0; j < n; j++) { const a = i * n + j, b = i * n + (j + 1) % n, c = a + n, d = b + n; idx.push(a, c, b, b, c, d); }
       const rg = new T.BufferGeometry(); rg.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); const uvs = []; for (let i = 0; i <= N; i++) for (let j = 0; j < n; j++) uvs.push(j / n, i / N * 40); rg.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2)); rg.setIndex(idx); rg.computeVertexNormals();
-      g.dispose(); S.add(new T.Mesh(rg, railM));
+      S.add(new T.Mesh(rg, railM));
     }
     // chalk marks
     const chalk = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.strokeStyle = 'rgba(238,236,228,.9)'; x.lineWidth = 9; x.lineCap = 'round'; draw(x); const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; return t; };
@@ -238,9 +238,9 @@
       chalk((x) => { x.lineWidth = 7; for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(60 + i * 34, 60); x.lineTo(66 + i * 34, 196); x.stroke(); } x.beginPath(); x.moveTo(40, 170); x.lineTo(200, 90); x.stroke(); })];
     const chalkM = marks.map((t, k) => sonar(new T.MeshStandardMaterial({ map: t, transparent: true, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }), 'chalk' + k));
     [[-74, -1, 1], [-84, 1, 0], [-97, -1, 2], [-113, 1, 1], [-131, -1, 0]].forEach(([z, sg, k]) => {
-      const s = sZ(z), f = frame(s), pr = prof(s, f.P.z); const o = at(s, sg * 3, 1.5), dir = f.side.clone().multiplyScalar(sg);
+      const s = sZ(z), f = frame(s), dir = f.side.clone().multiplyScalar(sg);
       const hit = new T.Raycaster(at(s, 0, 1.5), dir, 0, 8).intersectObject(rock)[0]; if (!hit) return;
-      const m = new T.Mesh(new T.PlaneGeometry(0.85, 0.85), chalkM[k]); m.position.copy(hit.point).addScaledVector(dir, -0.04); m.lookAt(at(s, 0, 1.5)); S.add(m); o.set(0, 0, 0); pr.W += 0;
+      const m = new T.Mesh(new T.PlaneGeometry(0.85, 0.85), chalkM[k]); m.position.copy(hit.point).addScaledVector(dir, -0.04); m.lookAt(at(s, 0, 1.5)); S.add(m);
     });
 
     // the tipped mine cart (built here, Poly Haven rusty metal)
@@ -271,7 +271,7 @@
     const chains = world.chains = new T.InstancedMesh(linkG, chainM, nL); chains.userData.defs = chainDefs; S.add(chains);
 
     // water: a flooded stretch (planar reflection) and two small puddles
-    const fl0 = frame(S_FLOOD0), fl1 = frame(S_FLOOD1); let hY = -1e9; for (let s = S_FLOOD0; s <= S_FLOOD1; s += 0.5) hY = Math.max(hY, frame(s).P.y); hY += 0.035; world.hY = hY; fl0.P && fl1.P;
+    let hY = -1e9; for (let s = S_FLOOD0; s <= S_FLOOD1; s += 0.5) hY = Math.max(hY, frame(s).P.y); hY += 0.035; world.hY = hY;
     const ribbon = (s0, s1, w, y, seg) => { const pos = [], idx = []; for (let i = 0; i <= seg; i++) { const s = s0 + (s1 - s0) * i / seg, f = frame(s), u = i / seg, ww = w * Math.pow(Math.sin(Math.PI * u), 0.35) * (0.85 + 0.3 * FK.noise(u * 9, 1, 2)); for (const sg of [-1, 1]) { const v = f.P.clone().addScaledVector(f.side, sg * ww); pos.push(v.x, y == null ? f.P.y + 0.03 : y, v.z); } } for (let i = 0; i < seg; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g; };
     world.drips = [V(), V(), V(), V()].map((v, i) => { const s = S_FLOOD0 + (S_FLOOD1 - S_FLOOD0) * (0.2 + i * 0.22); return at(s, (rnd() - 0.5) * 1.2, 0.035); });
     const WU = { uMir: { value: mirRT.texture }, uRes: { value: bufSize }, uMirOn: { value: 1 }, uDrip: { value: world.drips.map((p) => new T.Vector4(p.x, p.z, -99, 0)) }, uTime: { value: 0 } };
