@@ -32,7 +32,7 @@ import tempfile
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 VARIANTS = ('desktop', 'portrait')
-PRESETS = ('preview', 'standard', '4k', '8k240')
+PRESETS = ('preview', 'standard', '100fps', '4k', '8k240')
 FRAME_RE = re.compile(r'^f_(\d+)\.png$', re.IGNORECASE)
 
 # Resolution folder search order per output variant and preset
@@ -42,6 +42,10 @@ VARIANT_DIRS = {
         'portrait': ('portrait', '4k-portrait', '8k-portrait'),
     },
     'standard': {
+        'desktop': ('desktop', '4k', '8k'),
+        'portrait': ('portrait', '4k-portrait', '8k-portrait'),
+    },
+    '100fps': {
         'desktop': ('desktop', '4k', '8k'),
         'portrait': ('portrait', '4k-portrait', '8k-portrait'),
     },
@@ -445,6 +449,8 @@ def encode_film(name, renders_dir, out_root, args):
         encoded_any = True
 
     if encoded_any and not args.dry_run:
+        if args.cdn_base:
+            manifest['baseUrl'] = args.cdn_base.rstrip('/') + '/' + name + '/'
         os.makedirs(film_out, exist_ok=True)
         with open(manifest_path, 'w', encoding='utf-8') as fh:
             json.dump(manifest, fh, indent=2)
@@ -491,7 +497,7 @@ def parse_args(argv=None):
     ap.add_argument('--film', action='append', dest='film_flags', default=[],
                     help='film name to encode (repeatable; default: auto-discover all in --renders)')
     ap.add_argument('--preset', choices=list(PRESETS), default='standard',
-                    help='encoding preset: preview | standard | 4k | 8k240 (default: standard)')
+                    help='encoding preset: preview | standard | 100fps | 4k | 8k240 (default: standard)')
     ap.add_argument('--renders', default=os.path.join(REPO_ROOT, 'renders'),
                     help='root folder containing <film>/{desktop,portrait,4k,8k,...}/f_####.png')
     ap.add_argument('--out', default=os.path.join(REPO_ROOT, 'assets', 'films'),
@@ -499,13 +505,13 @@ def parse_args(argv=None):
     ap.add_argument('--res', choices=['both', 'desktop', 'portrait'], default='both',
                     help='which output variant(s) to encode')
     ap.add_argument('--frames', default='',
-                    help='optional frame range filter, e.g. 1-240, 1-1200, or 1-2000')
+                    help='optional frame range filter, e.g. 1-240, 1-600, 1-1000, or 1-2000')
     ap.add_argument('--format', choices=['webp', 'avif'], default='webp',
                     help='still frame format (default: webp)')
     ap.add_argument('--quality', type=int, default=82,
                     help='image quality 1..100 (default: 82)')
     ap.add_argument('--fps', type=int, default=24,
-                    help='manifest & AV1 frame rate (24..240; default: 24, or 240 with --preset 8k240)')
+                    help='manifest & AV1 frame rate (24..240; default: 24, 100 with 100fps, 240 with 8k240)')
     ap.add_argument('--chunk', type=int, default=48,
                     help='frames per preload chunk in manifest (default: 48)')
     ap.add_argument('--max-width', type=int, default=0,
@@ -517,6 +523,8 @@ def parse_args(argv=None):
     ap.add_argument('--av1', action='store_true',
                     help='also produce all-intra AV1 video (-c:v libaom-av1 -crf 30 -g 1)')
     ap.add_argument('--av1-crf', type=int, default=30, help='CRF for --av1 output (default: 30)')
+    ap.add_argument('--cdn-base', default='',
+                    help='optional external CDN base URL (e.g. https://pub-xxx.r2.dev/films) recorded as baseUrl in manifest.json')
     ap.add_argument('--index', default='', help='path to index.json (default: <out>/index.json)')
     ap.add_argument('--no-index', action='store_true', help='do not update index.json')
     ap.add_argument('--dry-run', action='store_true', help='show planned work without writing files')
@@ -528,6 +536,11 @@ def parse_args(argv=None):
             args.quality = 74
         if not _flag_given(raw_argv, '--chunk'):
             args.chunk = 24
+    elif args.preset == '100fps':
+        if not _flag_given(raw_argv, '--fps'):
+            args.fps = 100
+        if not _flag_given(raw_argv, '--chunk'):
+            args.chunk = 50
     elif args.preset == '4k':
         if not _flag_given(raw_argv, '--quality'):
             args.quality = 85

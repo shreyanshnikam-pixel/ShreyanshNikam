@@ -37,7 +37,7 @@ RES = {
     '8k': (7680, 4320),
     '8k-portrait': (4320, 7680),
 }
-PRESETS = ('preview', 'standard', '4k', '8k240')
+PRESETS = ('preview', 'standard', '100fps', '4k', '8k240')
 
 
 def res_aspect_key(which):
@@ -100,7 +100,7 @@ def parse_args(description, defaults=None, extra=None):
     p.add_argument('--fps', type=int, default=d['fps'],
                    help='frame rate (24, 60, 120, 240; default: %d)' % d['fps'])
     p.add_argument('--preset', choices=list(PRESETS), default=None,
-                   help='quality/speed preset: preview | standard | 4k | 8k240')
+                   help='quality/speed preset: preview | standard | 100fps | 4k | 8k240')
     p.add_argument('--samples', type=int, default=d['samples'], help='max samples per pixel (adaptive)')
     p.add_argument('--min-samples', type=int, default=d['min_samples'], help='adaptive minimum samples')
     p.add_argument('--threshold', type=float, default=d['threshold'], help='adaptive noise threshold')
@@ -119,6 +119,14 @@ def parse_args(description, defaults=None, extra=None):
     # Apply preset defaults without overriding flags explicitly supplied on the command line.
     if args.preset == 'preview':
         args.preview = True
+    elif args.preset == '100fps':
+        if not _flag_given(argv, '--fps'):
+            args.fps = 100
+        if not _flag_given(argv, '--frames'):
+            base_a, _, base_b = str(d['frames']).partition('-')
+            base_count = max(1, int(base_b or base_a) - int(base_a) + 1)
+            scaled = max(1, int(round(base_count * (args.fps / float(FPS)))))
+            args.frames = '1-%d' % scaled
     elif args.preset == '4k':
         if not _flag_given(argv, '--res') or args.res in ('desktop', 'portrait'):
             args.res = upgrade_res_tier(args.res, '4k')
@@ -486,7 +494,19 @@ def sun_lamp(name='SUN', elevation=40.0, azimuth=30.0, energy=4.0, angle=0.53, c
 
 def caustics_light(light_obj):
     """Mark a light as a shadow-caustics (MNEE) light. Blender 3.2+."""
-    try_set(light_obj, 'is_caustics_light', True) or try_set(light_obj.data, 'is_caustics_light', True)
+    for target in (getattr(light_obj, 'data', None), light_obj):
+        if target is None:
+            continue
+        for sub in (getattr(target, 'cycles', None), target):
+            if sub is not None and hasattr(sub, 'is_caustics_light'):
+                try:
+                    setattr(sub, 'is_caustics_light', True)
+                    return True
+                except (TypeError, AttributeError, ValueError) as e:
+                    warn('%s.is_caustics_light: %s' % (getattr(light_obj, 'name', light_obj), e))
+                    return False
+    warn('no property is_caustics_light on %s (Blender version?)' % getattr(light_obj, 'name', light_obj))
+    return False
 
 
 def caustics_object(obj, caster=False, receiver=False):
