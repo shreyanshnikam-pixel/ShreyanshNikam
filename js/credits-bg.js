@@ -136,7 +136,7 @@
       '  vec4 mv = modelViewMatrix * vec4(p, 1.0);',
       '  gl_Position = projectionMatrix * mv;',
       '  float d = -mv.z;',
-      '  gl_PointSize = uPx * (0.35 + aR * 0.9) * 90.0 / max(d, 1.0);',
+      '  gl_PointSize = uPx * (0.4 + aR * 1.0) * 130.0 / max(d, 1.0);',
       '  vA = smoothstep(90.0, 20.0, d) * smoothstep(0.5, 3.0, d) * (0.55 + 0.45 * aR);',
       '}'
     ].join('\n'),
