@@ -3,3 +3,6 @@ node_modules/
 renders/
 *.blend1
 assets/films/_test/
+__pycache__/
+*.pyc
+blender/tex/

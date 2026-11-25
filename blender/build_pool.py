@@ -1,18 +1,22 @@
 """Pool film for the home page, section 05 "Beyond the classroom" (plan.md 4.2 and 7).
 
-Story (240 frames at 24 fps = 10 s):
-    1-40     above a slab of ice that covers the pool, slow push in
-    30-95    the slab melts: a noise mask eats it from transparent holes outwards
-    90-115   the camera drops through the hole and under the surface
-    110-185  a swimmer glides overhead in streamline with a flutter kick; bubbles, caustics, light shafts
-    180-210  the camera rises back through the surface
-    195-235  the water refreezes into the slab
+Time-normalized over args.f0..args.f1 and args.fps so standard (240 frames @ 24 fps = 10 s)
+and ultra high-speed (1200-2000 frames @ 240 fps, 4K/8K) renders work identically.
+
+Story (normalized progress t in [0.0 .. 1.0]):
+    0.00 - 0.17  above a slab of ice that covers the pool, slow push in
+    0.12 - 0.40  the slab melts: a noise mask eats it from transparent holes outwards
+    0.37 - 0.48  the camera drops through the hole and under the surface
+    0.46 - 0.77  a swimmer glides overhead in streamline with a flutter kick; bubbles, caustics, light shafts
+    0.75 - 0.88  the camera rises back through the surface
+    0.81 - 0.98  the water refreezes into the slab
 
 Scene: 50 x 25 m competition pool, 2 m deep, 10 lanes of 2.5 m, white tiles with dark lane T-lines and wall
-targets, lane ropes, starting blocks, refractive water (IOR 1.333) with animated displacement waves and an
-absorbing + scattering volume, sun through the surface with caustics (light-path caustics, plus shadow
-caustics/MNEE on Blender 3.2+), a gobo spot light for volumetric shafts (light linking keeps the water from
-blocking it, Blender 4.0+), bubbles, and a stand-in swimmer.
+targets, lane ropes, starting blocks, refractive water (IOR 1.333) with animated displacement waves,
+capillary micro-ripples, and an absorbing + anisotropic forward-scattering volume, sun through the surface
+with caustics (light-path caustics, plus shadow caustics/MNEE on Blender 3.2+), a gobo spot light for
+volumetric shafts (light linking keeps the water from blocking it, Blender 4.0+), bubbles, and a stand-in
+swimmer with Random Walk subsurface scattering.
 
 Swimmer: the empty SWIMMER is the root. Its children are simple capsules with pivot empties at the shoulders
 and hips. To use a Mixamo character instead: import the FBX, parent its armature to SWIMMER (keep transform),
@@ -21,6 +25,7 @@ rotate it prone facing +X, then delete the SWIMMER_* mesh children. The glide pa
 Run (from the repo root):
     blender -b -P blender/build_pool.py -- --out renders/pool --res desktop --frames 1-240
     blender -b -P blender/build_pool.py -- --out renders/pool --res portrait --frames 1-240
+    blender -b -P blender/build_pool.py -- --out renders/pool --preset 8k240 --frames 1-2000
     blender -b -P blender/build_pool.py -- --preview --save renders/pool/pool.blend   # quick look + .blend
 """
 import math
@@ -79,19 +84,36 @@ def tile_material():
     return mat
 
 
-def water_material():
-    """Clear refractive surface + blue absorption + forward scattering volume (shows the light shafts)."""
-    mat = C.material('Water', Base_Color=(1, 1, 1, 1), Roughness=0.02, IOR=1.333, Transmission_Weight=1.0,
-                     Specular_IOR_Level=0.5)
+def water_material(args=None):
+    """Clear refractive surface (IOR 1.333) + capillary micro-ripples + blue absorption + forward scatter."""
+    mat = C.material('Water', Base_Color=(1, 1, 1, 1), Roughness=0.015, IOR=1.333, Transmission_Weight=1.0,
+                     Coat_Weight=0.45, Coat_Roughness=0.01, Specular_IOR_Level=0.55)
     nt = mat.node_tree
+    b = C.bsdf_of(mat)
     out = C.output_of(mat)
+    # Fine animated capillary ripples layered over the macro wave displacement
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    rip = nt.nodes.new('ShaderNodeTexNoise')
+    rip.noise_dimensions = '4D'
+    rip.inputs['Scale'].default_value = 9.5
+    rip.inputs['Detail'].default_value = 5.0
+    rip.inputs['Roughness'].default_value = 0.55
+    fps = int(getattr(args, 'fps', C.FPS)) if args else C.FPS
+    C.frame_driver(rip.inputs['W'], 'frame / %.3f' % (2.0 * fps))
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 0.045
+    bump.inputs['Distance'].default_value = 0.015
+    nt.links.new(tc.outputs['Object'], rip.inputs['Vector'])
+    nt.links.new(rip.outputs['Fac'], bump.inputs['Height'])
+    nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+
     absorb = nt.nodes.new('ShaderNodeVolumeAbsorption')
-    absorb.inputs['Color'].default_value = (0.70, 0.88, 0.95, 1)
-    absorb.inputs['Density'].default_value = 0.09
+    absorb.inputs['Color'].default_value = (0.68, 0.87, 0.95, 1)
+    absorb.inputs['Density'].default_value = 0.095
     scat = nt.nodes.new('ShaderNodeVolumeScatter')
-    scat.inputs['Color'].default_value = (0.82, 0.93, 1.0, 1)
-    scat.inputs['Density'].default_value = 0.018
-    scat.inputs['Anisotropy'].default_value = 0.65
+    scat.inputs['Color'].default_value = (0.80, 0.93, 1.0, 1)
+    scat.inputs['Density'].default_value = 0.02
+    scat.inputs['Anisotropy'].default_value = 0.72
     add = nt.nodes.new('ShaderNodeAddShader')
     nt.links.new(absorb.outputs[0], add.inputs[0])
     nt.links.new(scat.outputs[0], add.inputs[1])
@@ -100,13 +122,15 @@ def water_material():
 
 
 def ice_slab_material():
-    """Ice with a melt mask: a Value node 'MELT' (0 = solid, 1 = gone) thresholds a noise field; below the
-    threshold the surface becomes Transparent BSDF (the 'alpha' of the dissolve). A thin bright rim marks the edge."""
-    mat = C.material('IceSlab', Base_Color=(0.91, 0.94, 0.97, 1), Roughness=0.08, IOR=1.31,
-                     Transmission_Weight=0.92, Subsurface_Weight=0.15, Specular_IOR_Level=0.5)
+    """Refractive glacial ice (IOR 1.31, SSS + icy blue volume attenuation, wet melt coat) with a melt mask.
+    A Value node 'MELT' (0 = solid, 1 = gone) thresholds a noise field; below it the surface becomes Transparent."""
+    mat = C.material('IceSlab', Base_Color=(0.90, 0.94, 0.98, 1), Roughness=0.075, IOR=1.31,
+                     Transmission_Weight=0.94, Subsurface_Weight=0.18,
+                     Coat_Weight=0.85, Coat_Roughness=0.025, Specular_IOR_Level=0.55)
     b = C.bsdf_of(mat)
     try:
-        C.set_input(b, 'Subsurface Radius', (0.6, 0.85, 1.0))
+        C.set_input(b, 'Subsurface Radius', (0.45, 0.78, 1.0))
+        C.set_input(b, 'Subsurface Scale', 0.18)
     except Exception:
         pass
     nt = mat.node_tree
@@ -142,12 +166,17 @@ def ice_slab_material():
     nt.links.new(transp.outputs[0], mix.inputs[1])
     nt.links.new(b.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs['Surface'])
-    # subtle frost on the surface: bump from fine noise
+    # icy blue volumetric attenuation inside the thick slab
+    ice_abs = nt.nodes.new('ShaderNodeVolumeAbsorption')
+    ice_abs.inputs['Color'].default_value = (0.66, 0.80, 0.89, 1)
+    ice_abs.inputs['Density'].default_value = 0.25
+    nt.links.new(ice_abs.outputs[0], out.inputs['Volume'])
+    # subtle frost & crystal veins on the surface: bump from fine noise
     fn = nt.nodes.new('ShaderNodeTexNoise')
     fn.inputs['Scale'].default_value = 40.0
-    fn.inputs['Detail'].default_value = 4.0
+    fn.inputs['Detail'].default_value = 5.0
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.08
+    bump.inputs['Strength'].default_value = 0.09
     nt.links.new(tc.outputs['Object'], fn.inputs['Vector'])
     nt.links.new(fn.outputs['Fac'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
@@ -191,9 +220,11 @@ def build_deck(col, snow):
     C.box('DeckW', (t, POOL_W, 1.0), (-POOL_L / 2 - t / 2, 0, DECK_Z - 0.5), col, snow)
 
 
-def build_water(col, mat, strength):
+def build_water(col, mat, strength, args):
     """Grid -> two Displace modifiers (animated by drifting empties) -> Solidify into a closed volume."""
-    water = C.plane('Water', (POOL_L - 0.02, POOL_W - 0.02), (0, 0, 0), col, mat, segments=(400, 200))
+    high_res = '4k' in args.res or '8k' in args.res
+    segs = (560, 280) if high_res else (400, 200)
+    water = C.plane('Water', (POOL_L - 0.02, POOL_W - 0.02), (0, 0, 0), col, mat, segments=segs)
     for p in water.data.polygons:
         p.use_smooth = True
     for i, (scale, s, drift) in enumerate(((1.6, 1.0, (0.9, 0.35, 0)), (0.55, 0.45, (-0.4, 0.8, 0)))):
@@ -202,8 +233,8 @@ def build_water(col, mat, strength):
         tex.noise_depth = 2
         tex.noise_basis = 'ORIGINAL_PERLIN'
         drv = C.empty('WaveDrift%d' % i, (0, 0, 0), col)
-        C.key(drv, 1, loc=(0, 0, 0))
-        C.key(drv, 240, loc=(drift[0] * 10, drift[1] * 10, 0))
+        C.key(drv, args.f0, loc=(0, 0, 0))
+        C.key(drv, args.f1, loc=(drift[0] * 10, drift[1] * 10, 0))
         C.interpolation(drv, 'LINEAR')
         m = water.modifiers.new('Waves%d' % i, 'DISPLACE')
         m.texture = tex
@@ -252,16 +283,27 @@ def build_blocks(col):
         C.box('BlockPost_%d' % i, (0.3, 0.3, 0.65), (POOL_L / 2 + 0.45, y, DECK_Z + 0.33), col, mat)
 
 
-def build_swimmer(col):
+def build_swimmer(col, args):
     """Stand-in swimmer, prone, facing +X, arms in streamline ahead, flutter kick from the hips."""
+    kf = lambda t: C.frame_at(t, args.f0, args.f1)
+    scale = C.fps_scale(args)
     root = C.empty('SWIMMER', (0, 0, -0.35), col, 'ARROWS', 0.6)
-    suit = C.material('SwimSuit', Base_Color=(0.03, 0.04, 0.06, 1), Roughness=0.45)
-    skin = C.material('Skin', Base_Color=(0.62, 0.46, 0.38, 1), Roughness=0.45, Subsurface_Weight=0.3)
-    cap = C.material('Cap', Base_Color=(0.95, 0.96, 0.97, 1), Roughness=0.3)
+    suit = C.material('SwimSuit', Base_Color=(0.03, 0.04, 0.06, 1), Roughness=0.38, Coat_Weight=0.25)
+    skin = C.material('Skin', Base_Color=(0.62, 0.46, 0.38, 1), Roughness=0.36, Subsurface_Weight=0.45,
+                      Coat_Weight=0.55, Coat_Roughness=0.08)
+    try:
+        C.set_input(C.bsdf_of(skin), 'Subsurface Radius', (1.0, 0.35, 0.20))
+        C.set_input(C.bsdf_of(skin), 'Subsurface Scale', 0.025)
+    except Exception:
+        pass
+    cap = C.material('Cap', Base_Color=(0.95, 0.96, 0.97, 1), Roughness=0.24, Coat_Weight=0.4)
     torso = C.sphere('SWIMMER_torso', 1.0, (0, 0, 0), col, suit)
     torso.scale = (0.42, 0.19, 0.12)
     head = C.sphere('SWIMMER_head', 0.11, (0.58, 0, 0.0), col, cap)
     parts = [torso, head]
+    # 2 full flutter kicks per second at any fps (12 frames @ 24 fps, 120 frames @ 240 fps)
+    kick_period = max(4, int(round(args.fps / 2.0)))
+    half_kick = max(2, kick_period // 2)
     for side, sy in (('L', 0.17), ('R', -0.17)):
         sh = C.empty('SWIMMER_shoulder.%s' % side, (0.36, sy, 0.02), col)
         arm = C.cylinder('SWIMMER_arm.%s' % side, 0.045, 0.62, (0.31, 0, 0), col, skin, radius2=0.035)
@@ -272,9 +314,8 @@ def build_swimmer(col):
         leg = C.cylinder('SWIMMER_leg.%s' % side, 0.07, 0.85, (-0.43, 0, 0), col, skin, radius2=0.04)
         leg.rotation_euler = (0, math.pi / 2, 0)
         leg.parent = hip
-        # flutter kick: legs alternate +-12 degrees, 2 kicks per second, looped with a Cycles modifier
-        ph = 0 if side == 'L' else 6
-        for f, a in ((1 + ph, 12), (7 + ph, -12), (13 + ph, 12)):
+        ph = 0 if side == 'L' else half_kick
+        for f, a in ((args.f0 + ph, 12), (args.f0 + ph + half_kick, -12), (args.f0 + ph + kick_period, 12)):
             C.key(hip, f, rot=(0, a, 0))
         for fc in C.iter_fcurves(hip):
             fc.modifiers.new('CYCLES')
@@ -282,26 +323,30 @@ def build_swimmer(col):
     for p in parts:
         p.parent = root
     # glide overhead from -X to +X, about 2 m/s, with a slow body roll
-    C.key(root, 100, loc=(-4.5, 0.2, -0.38), rot=(0, 0, 0))
-    C.key(root, 190, loc=(3.0, 0.0, -0.32), rot=(0, 0, 0))
+    C.key(root, kf(100 / 240.0), loc=(-4.5, 0.2, -0.38), rot=(0, 0, 0))
+    C.key(root, kf(190 / 240.0), loc=(3.0, 0.0, -0.32), rot=(0, 0, 0))
     C.interpolation(root, 'LINEAR', 'location')
-    C.add_noise(root, 'rotation_euler', strength=0.08, scale=30.0)
+    C.add_noise(root, 'rotation_euler', strength=0.08, scale=30.0 * scale)
     return root
 
 
 def build_bubbles(col, swimmer, args):
+    kf = lambda t: C.frame_at(t, args.f0, args.f1)
+    scale = C.fps_scale(args)
     bubble_mat = C.material('Bubble', Base_Color=(1, 1, 1, 1), Roughness=0.0, IOR=0.752, Transmission_Weight=1.0)
     bubble = C.ico('BUBBLE', 1.0, 2, (0, 0, -500), col, bubble_mat)   # instance source, parked far away
     floor_em = C.plane('BubbleEmitterFloor', (12, 6), (0, 0, -DEPTH + 0.05), col)
-    C.particles(floor_em, 'FloorBubbles', bubble, count=700, frame_start=1, frame_end=240, lifetime=90, size=0.012,
+    C.particles(floor_em, 'FloorBubbles', bubble, count=700, frame_start=args.f0, frame_end=args.f1,
+                lifetime=max(20, int(round(90 * scale))), size=0.012,
                 size_random=0.7, normal=0.45, gravity=0.0, brownian=0.06, seed=args.seed)
     kick = C.plane('BubbleEmitterKick', (0.3, 0.3), (-1.2, 0, 0), col)
     kick.parent = swimmer
-    C.particles(kick, 'KickBubbles', bubble, count=260, frame_start=100, frame_end=190, lifetime=50, size=0.008,
+    C.particles(kick, 'KickBubbles', bubble, count=260, frame_start=kf(100 / 240.0), frame_end=kf(190 / 240.0),
+                lifetime=max(12, int(round(50 * scale))), size=0.008,
                 size_random=0.8, normal=0.15, gravity=0.0, brownian=0.25, seed=args.seed + 1)
 
 
-def build_shafts(col, sun_el, sun_az, blockers):
+def build_shafts(col, sun_el, sun_az, blockers, args):
     """Spot light with an animated caustic gobo (Voronoi distance-to-edge). With light linking the water surface
     does not block it, so it lights the water volume as shafts and draws moving caustic webs on the tiles."""
     ld = bpy.data.lights.new('SHAFTS', 'SPOT')
@@ -320,7 +365,7 @@ def build_shafts(col, sun_el, sun_az, blockers):
     vor.voronoi_dimensions = '4D'
     vor.feature = 'DISTANCE_TO_EDGE'
     vor.inputs['Scale'].default_value = 3.0
-    C.frame_driver(vor.inputs['W'], 'frame / 60')
+    C.frame_driver(vor.inputs['W'], 'frame / %.3f' % (2.5 * args.fps))
     mr = nt.nodes.new('ShaderNodeMapRange')
     mr.inputs[1].default_value = 0.0
     mr.inputs[2].default_value = 0.08
@@ -355,6 +400,8 @@ def main():
     scene.cycles.volume_step_rate = 0.5  # finer steps in 2 m of water: crisper shafts
     col = C.collection('Pool')
     blockers = C.collection('ShaftBlockers')
+    kf = lambda t: C.frame_at(t, args.f0, args.f1)
+    scale = C.fps_scale(args)
 
     # sky (sun disc off: the sun lamp below is the sun, so caustics come from a real light)
     C.nishita_world(scene, sun_elevation=args.sun_elevation, sun_rotation=args.sun_azimuth, strength=0.6,
@@ -364,12 +411,12 @@ def main():
 
     tiles = tile_material()
     lines = C.material('LaneLines', Base_Color=(0.03, 0.07, 0.13, 1), Roughness=0.15)
-    snow = C.material('DeckSnow', Base_Color=(0.93, 0.95, 0.97, 1), Roughness=0.6, Subsurface_Weight=0.2)
+    snow = C.material('DeckSnow', Base_Color=(0.93, 0.95, 0.97, 1), Roughness=0.6, Subsurface_Weight=0.24)
     floor, walls = build_basin(col, tiles, lines)
     for o in [floor] + walls:
         C.caustics_object(o, receiver=True)
     build_deck(col, snow)
-    water = build_water(col, water_material(), args.waves)
+    water = build_water(col, water_material(args), args.waves, args)
     build_lane_ropes(col)
     build_blocks(col)
 
@@ -379,44 +426,42 @@ def main():
     bev = slab.modifiers.new('Bevel', 'BEVEL')
     bev.width = 0.04
     bev.segments = 3
-    C.key_socket(melt.outputs[0], 1, 0.0)
-    C.key_socket(melt.outputs[0], 30, 0.0)
-    C.key_socket(melt.outputs[0], 95, 1.0)
-    C.key_socket(melt.outputs[0], 195, 1.0)
-    C.key_socket(melt.outputs[0], 235, 0.0)
+    C.caustics_object(slab, caster=True, receiver=True)
+    for t, val in ((0.0, 0.0), (30 / 240.0, 0.0), (95 / 240.0, 1.0), (195 / 240.0, 1.0), (235 / 240.0, 0.0)):
+        C.key_socket(melt.outputs[0], kf(t), val)
     C.ease(ice_mat.node_tree)
 
-    swimmer = build_swimmer(col)
+    swimmer = build_swimmer(col, args)
     for o in [swimmer] + [c for c in swimmer.children_recursive] + [slab]:
         if o.name not in blockers.objects:
             blockers.objects.link(o)
     build_bubbles(col, swimmer, args)
     if not args.no_shafts:
-        build_shafts(col, args.sun_elevation, args.sun_azimuth, blockers)
+        build_shafts(col, args.sun_elevation, args.sun_azimuth, blockers, args)
 
     # camera: above the slab -> down through the melt hole -> under the swimmer -> back up -> refreeze
     rig = C.CameraRig('CAM', lens=28.0, col=col)
-    for f, loc, look in (
-            (1, (-3.0, -7.0, 4.6), (0.0, 0.0, 0.25)),
-            (40, (-2.2, -5.4, 3.6), (0.0, 0.5, 0.2)),
-            (90, (-0.6, -2.6, 1.3), (0.3, 2.0, -0.6)),
-            (115, (-0.4, -1.6, -1.25), (1.5, 3.5, -0.7)),
-            (145, (-0.8, -0.9, -1.55), (0.2, 0.6, -0.2)),
-            (180, (0.8, -1.0, -1.35), (3.0, 0.4, -0.4)),
-            (205, (1.4, -1.8, 0.9), (1.8, 1.5, 0.1)),
-            (240, (2.6, -6.0, 3.9), (0.0, 0.0, 0.25))):
-        rig.key(f, loc, look)
+    for t, loc, look in (
+            (0.0, (-3.0, -7.0, 4.6), (0.0, 0.0, 0.25)),
+            (40 / 240.0, (-2.2, -5.4, 3.6), (0.0, 0.5, 0.2)),
+            (90 / 240.0, (-0.6, -2.6, 1.3), (0.3, 2.0, -0.6)),
+            (115 / 240.0, (-0.4, -1.6, -1.25), (1.5, 3.5, -0.7)),
+            (145 / 240.0, (-0.8, -0.9, -1.55), (0.2, 0.6, -0.2)),
+            (180 / 240.0, (0.8, -1.0, -1.35), (3.0, 0.4, -0.4)),
+            (205 / 240.0, (1.4, -1.8, 0.9), (1.8, 1.5, 0.1)),
+            (1.0, (2.6, -6.0, 3.9), (0.0, 0.0, 0.25))):
+        rig.key(kf(t), loc, look)
     C.ease(rig.rig)
     C.ease(rig.look)
-    rig.shake(strength=0.004, scale=40.0)
+    rig.shake(strength=0.004, scale=40.0 * scale)
 
     # depth of field: FOCUS follows the slab, then the swimmer (Copy Location influence 0 -> 1 -> 0)
     focus = C.empty('FOCUS', (0, 0, 0.37), col)
     cl = focus.constraints.new('COPY_LOCATION')
     cl.target = swimmer
-    for f, v in ((100, 0.0), (120, 1.0), (178, 1.0), (195, 0.0)):
+    for t, v in ((100 / 240.0, 0.0), (120 / 240.0, 1.0), (178 / 240.0, 1.0), (195 / 240.0, 0.0)):
         cl.influence = v
-        cl.keyframe_insert('influence', frame=f)
+        cl.keyframe_insert('influence', frame=kf(t))
     rig.dof(focus=focus, fstop=2.2)
     C.use_camera(scene, rig, args.res)
 

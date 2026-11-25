@@ -3,11 +3,16 @@
 Imported by build_pool.py, build_sky.py and build_echo_descent.py. Nothing here renders on import.
 
 What lives here
-  * CLI parsing for arguments after `--` (same flags for every film)
+  * CLI parsing for arguments after `--` (same flags for every film, including --fps, --res up to 8K,
+    and --preset preview|standard|4k|8k240)
   * Render settings: Cycles on the GPU (OptiX / CUDA / HIP / Metal / oneAPI), adaptive sampling,
-    OpenImageDenoise, AgX "Medium High Contrast", motion blur 0.5, 24 fps, PNG sequence output
+    full multi-bounce GI, MNEE/light-path caustics, OpenImageDenoise (GPU), AgX "Medium High Contrast",
+    physical 180-degree centered motion blur, 24-240 fps, PNG sequence output
   * Camera rigs: one animated rig (an empty aimed with Track To at a LOOK empty) carrying a
-    1920x1080 desktop camera and a 1080x1920 portrait camera, plus a depth-of-field helper
+    16:9 desktop camera and a 9:16 portrait camera (automatically selected for desktop/4k/8k and
+    portrait/4k-portrait/8k-portrait), plus a depth-of-field helper
+  * Time-normalization helper (`frame_at`) so animations scale cleanly from 144/240 frames @ 24 fps
+    up to 1200-2000+ frames @ 240 fps
   * Nishita sky world (with optional stars), materials that work with Blender 4.x and 3.x socket names,
     bmesh primitives, keyframe helpers (cut-safe holds for motion blur), noise shake, caustics flags.
 
@@ -24,29 +29,83 @@ import bmesh
 from mathutils import Euler, Matrix, Vector
 
 FPS = 24
-RES = {'desktop': (1920, 1080), 'portrait': (1080, 1920)}
+RES = {
+    'desktop': (1920, 1080),
+    'portrait': (1080, 1920),
+    '4k': (3840, 2160),
+    '4k-portrait': (2160, 3840),
+    '8k': (7680, 4320),
+    '8k-portrait': (4320, 7680),
+}
+PRESETS = ('preview', 'standard', '4k', '8k240')
+
+
+def res_aspect_key(which):
+    """Map any RES key to its camera orientation ('desktop' or 'portrait')."""
+    return 'portrait' if 'portrait' in str(which) else 'desktop'
+
+
+def upgrade_res_tier(which, tier):
+    """Upgrade desktop/portrait to 4k/4k-portrait or 8k/8k-portrait, preserving orientation."""
+    is_port = 'portrait' in str(which)
+    if tier == '4k':
+        return '4k-portrait' if is_port else '4k'
+    if tier == '8k':
+        return '8k-portrait' if is_port else '8k'
+    return 'portrait' if is_port else 'desktop'
+
+
+def frame_at(t, f0, f1):
+    """Map normalized clip progress t in [0, 1] to an integer frame in [f0, f1]."""
+    t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else float(t))
+    return int(round(f0 + t * (f1 - f0)))
+
+
+def fps_scale(args, base_fps=FPS):
+    """Scale factor relative to 24 fps for time-based rates (noise scale, particle lifetimes, etc.)."""
+    return max(0.05, float(getattr(args, 'fps', base_fps)) / float(base_fps))
 
 
 # --------------------------------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------------------------------
+def _flag_given(argv, flag):
+    return any(tok == flag or tok.startswith(flag + '=') for tok in argv)
+
+
 def parse_args(description, defaults=None, extra=None):
     """Parse the arguments Blender passes after `--`.
 
     defaults: dict overriding the shared defaults for one film (e.g. {'samples': 1024, 'frames': '1-240'}).
     extra: function(parser) that adds film-specific flags.
     """
-    d = {'out': 'renders/film', 'res': 'desktop', 'frames': '1-240', 'samples': 768, 'min_samples': 64,
-         'threshold': 0.01, 'device': 'auto'}
+    d = {
+        'out': 'renders/film',
+        'res': 'desktop',
+        'frames': '1-240',
+        'fps': FPS,
+        'samples': 768,
+        'min_samples': 64,
+        'threshold': 0.01,
+        'shutter': 0.5,
+        'device': 'auto',
+    }
     d.update(defaults or {})
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     p = argparse.ArgumentParser(prog='blender -b -P <script> --', description=description)
     p.add_argument('--out', default=d['out'], help='output folder; frames go to <out>/<res>/f_####.png')
-    p.add_argument('--res', choices=['desktop', 'portrait'], default=d['res'], help='desktop 1920x1080 or portrait 1080x1920')
-    p.add_argument('--frames', default=d['frames'], help='frame range, e.g. 1-240 or 100-120')
+    p.add_argument('--res', choices=list(RES.keys()), default=d['res'],
+                   help='desktop/portrait (1080p), 4k/4k-portrait (2160p), or 8k/8k-portrait (4320p)')
+    p.add_argument('--frames', default=d['frames'], help='frame range, e.g. 1-240, 1-1200, or 1-2000')
+    p.add_argument('--fps', type=int, default=d['fps'],
+                   help='frame rate (24, 60, 120, 240; default: %d)' % d['fps'])
+    p.add_argument('--preset', choices=list(PRESETS), default=None,
+                   help='quality/speed preset: preview | standard | 4k | 8k240')
     p.add_argument('--samples', type=int, default=d['samples'], help='max samples per pixel (adaptive)')
     p.add_argument('--min-samples', type=int, default=d['min_samples'], help='adaptive minimum samples')
     p.add_argument('--threshold', type=float, default=d['threshold'], help='adaptive noise threshold')
+    p.add_argument('--shutter', type=float, default=d['shutter'],
+                   help='motion blur shutter in frames (0.5 = physical 180-deg shutter)')
     p.add_argument('--device', default=d['device'], help='auto | OPTIX | CUDA | HIP | METAL | ONEAPI | CPU')
     p.add_argument('--preview', action='store_true', help='fast look: 50%% resolution, 64 samples, every 4th frame')
     p.add_argument('--png16', action='store_true', help='16-bit PNG (bigger files, smoother gradients)')
@@ -56,6 +115,37 @@ def parse_args(description, defaults=None, extra=None):
     if extra:
         extra(p)
     args = p.parse_args(argv)
+
+    # Apply preset defaults without overriding flags explicitly supplied on the command line.
+    if args.preset == 'preview':
+        args.preview = True
+    elif args.preset == '4k':
+        if not _flag_given(argv, '--res') or args.res in ('desktop', 'portrait'):
+            args.res = upgrade_res_tier(args.res, '4k')
+        if not _flag_given(argv, '--samples'):
+            args.samples = max(args.samples, 1024)
+        if not _flag_given(argv, '--min-samples'):
+            args.min_samples = max(args.min_samples, 96)
+        if not _flag_given(argv, '--threshold'):
+            args.threshold = min(args.threshold, 0.008)
+    elif args.preset == '8k240':
+        if not _flag_given(argv, '--res') or args.res in ('desktop', 'portrait'):
+            args.res = upgrade_res_tier(args.res, '8k')
+        if not _flag_given(argv, '--fps'):
+            args.fps = 240
+        if not _flag_given(argv, '--frames'):
+            base_a, _, base_b = str(d['frames']).partition('-')
+            base_count = max(1, int(base_b or base_a) - int(base_a) + 1)
+            scaled = max(1200, min(2000, int(round(base_count * (args.fps / float(FPS))))))
+            args.frames = '1-%d' % scaled
+        if not _flag_given(argv, '--samples'):
+            args.samples = max(args.samples, 1024)
+        if not _flag_given(argv, '--min-samples'):
+            args.min_samples = max(args.min_samples, 128)
+        if not _flag_given(argv, '--threshold'):
+            args.threshold = min(args.threshold, 0.008)
+
+    args.fps = max(1, int(args.fps))
     a, _, b = args.frames.partition('-')
     args.f0, args.f1 = int(a), int(b or a)
     args.out = os.path.abspath(args.out)
@@ -160,27 +250,30 @@ def setup_render(scene, args, caustics=False, volumes=True, film_transparent=Fal
     try_set(c, 'denoising_prefilter', 'ACCURATE')
     if hasattr(c, 'denoising_use_gpu'):
         c.denoising_use_gpu = True  # Blender 4.1+: OIDN on the GPU
-    # light paths: deep enough for water, glass and ice
-    c.max_bounces = 16
-    c.diffuse_bounces = 4
-    c.glossy_bounces = 8
-    c.transmission_bounces = 16
-    c.volume_bounces = 2 if volumes else 0
+    # light paths: full multi-bounce GI, realistic water/glass/ice refraction & caustics
+    c.max_bounces = 24 if caustics else 16
+    c.diffuse_bounces = 8
+    c.glossy_bounces = 12
+    c.transmission_bounces = 24
+    c.volume_bounces = 4 if volumes else 0
     c.transparent_max_bounces = 32
     c.caustics_reflective = caustics
     c.caustics_refractive = caustics
-    c.blur_glossy = 0.5 if caustics else 1.0
+    c.blur_glossy = 0.25 if caustics else 0.75
+    try_set(c, 'sample_clamp_direct', 0.0)
     c.sample_clamp_indirect = 20.0 if caustics else 10.0
-    try_set(c, 'volume_step_rate', 1.0)
-    try_set(c, 'volume_max_steps', 1024)
+    try_set(c, 'use_light_tree', True)
+    try_set(c, 'volume_step_rate', 0.65 if volumes else 1.0)
+    try_set(c, 'volume_max_steps', 2048)
     c.seed = args.seed
     c.use_animated_seed = True  # different noise pattern per frame: denoised frames blend better in motion
     r = scene.render
     r.use_persistent_data = True  # keep BVH/textures between frames of an animation
-    r.fps = FPS
+    r.fps = int(getattr(args, 'fps', FPS))
     r.fps_base = 1.0
     r.use_motion_blur = True
-    r.motion_blur_shutter = 0.5
+    r.motion_blur_shutter = float(getattr(args, 'shutter', 0.5))
+    try_set(r, 'motion_blur_position', 'CENTER')
     r.film_transparent = film_transparent
     set_resolution(scene, args.res, 50 if preview else 100)
     # colour: AgX, Medium High Contrast look
@@ -254,7 +347,7 @@ class CameraRig:
             self.cams[which] = cam
 
     def camera(self, which):
-        return self.cams[which]
+        return self.cams[res_aspect_key(which)]
 
     def key(self, frame, loc=None, look=None):
         if loc is not None:
