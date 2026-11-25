@@ -18,11 +18,11 @@
   renderer.setPixelRatio(Math.min(small ? 1.5 : 1.75, window.devicePixelRatio || 1));
   renderer.outputEncoding = T.sRGBEncoding;
   renderer.toneMapping = T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 0.92;
 
   const scene = new T.Scene();
-  const FOG = C('#CAD7E2');
-  scene.fog = new T.Fog(FOG, 60, 330);
+  const FOG = C('#A9CBE3');
+  scene.fog = new T.Fog(FOG, 70, 720);
   const camera = new T.PerspectiveCamera(42, 1, 0.5, 1200);
 
   // ---------- sky dome: Deep ice at the zenith, Ice blue, then Frost and a white afterglow at the horizon ----------
@@ -36,7 +36,7 @@
       'void main(){',
       '  float y = clamp(vP.y, 0.0, 1.0);',
       '  vec3 c = mix(uLow, uMid, smoothstep(0.0, 0.22, y));',
-      '  c = mix(c, uTop, smoothstep(0.2, 0.75, y));',
+      '  c = mix(c, uTop, smoothstep(0.08, 0.55, y));',
       // afterglow low in the sky, off to one side
       '  float g = pow(max(0.0, dot(normalize(vec3(vP.x, 0.0, vP.z)), normalize(vec3(-0.6, 0.0, -1.0)))), 6.0) * (1.0 - smoothstep(0.0, 0.25, y));',
       '  c = mix(c, uGlow, g * 0.55);',
@@ -52,8 +52,8 @@
   scene.add(sky);
 
   // ---------- lights ----------
-  scene.add(new T.HemisphereLight(0xdcebf7, 0x8fa9bf, 0.55));
-  const key = new T.DirectionalLight(0xeaf2ff, 0.9); key.position.set(-120, 60, -160); scene.add(key);
+  scene.add(new T.HemisphereLight(0xc4d9ec, 0x5e7d99, 0.5));
+  const key = new T.DirectionalLight(0xd6e6f6, 0.65); key.position.set(-120, 60, -160); scene.add(key);
 
   // ---------- mountains: ridged fbm height fields, snow on gentle slopes, Deep ice in steep shadowed faces ----------
   function noise2(x, y) { // value noise
@@ -72,7 +72,7 @@
     for (let i = 0; i < n; i++) {
       const x = p.getX(i), zz = p.getZ(i);
       const back = 1 - (zz + depth / 2) / depth; // 0 at the front edge, 1 at the back
-      const peak = ridged(x * 0.012 + seed, zz * 0.02 + seed * 1.7, 5);
+      const peak = ridged(x * 0.008 + seed, zz * 0.016 + seed * 1.7, 4);
       const y = Math.pow(peak, 1.6) * height * (0.25 + 0.75 * Math.sin(Math.min(1, back * 1.2) * Math.PI * 0.5));
       p.setY(i, y - 4);
     }
@@ -84,15 +84,15 @@
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     g.setAttribute('color', new T.BufferAttribute(col, 3));
-    const m = new T.Mesh(g, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0, envMapIntensity: 0.7 }));
+    const m = new T.Mesh(g, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0, envMapIntensity: 0.45 }));
     m.position.z = z; scene.add(m); return m;
   }
   const q = small ? 0.5 : 1;
-  ridge(-300, 1100, 220, 150, 11.3, Math.round(220 * q), Math.round(44 * q));
-  ridge(-170, 800, 150, 80, 4.1, Math.round(200 * q), Math.round(40 * q));
+  ridge(-330, 1300, 240, 230, 11.3, Math.round(220 * q), Math.round(44 * q));
+  ridge(-180, 900, 160, 105, 4.1, Math.round(200 * q), Math.round(40 * q));
   ridge(-60, 520, 110, 26, 7.7, Math.round(160 * q), Math.round(34 * q));
   // snowfield in front
-  const ground = new T.Mesh(new T.PlaneGeometry(900, 300, 1, 1).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ color: C('#F4F7FA'), roughness: 0.95, envMapIntensity: 0.6 }));
+  const ground = new T.Mesh(new T.PlaneGeometry(900, 300, 1, 1).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ color: C('#F4F7FA'), roughness: 0.95, envMapIntensity: 0.4 }));
   ground.position.set(0, -3.4, 60); scene.add(ground);
 
   // ---------- low fog sheets drifting between the ridges ----------
@@ -171,8 +171,8 @@
     sx += (px - sx) * 0.03; sy += (py - sy) * 0.03;
     const sp = SITE.progress || 0;
     // slow lateral drift along the valley, sinking a little as you read down the page
-    camera.position.set(Math.sin(t * 0.025) * 30 + sx * 4, 9 - sp * 4 - sy * 1.5, 40);
-    camera.lookAt(camera.position.x * 0.6 + sx * 10, 14 - sp * 6, -200);
+    camera.position.set(Math.sin(t * 0.025) * 30 + sx * 4, 6 - sp * 3 - sy * 1.5, 40);
+    camera.lookAt(camera.position.x * 0.6 + sx * 10, 26 - sp * 10, -200);
     sky.material.uniforms.uT.value = t;
     fogs.forEach((f) => { f.material.uniforms.uT.value = t; });
     snowMat.uniforms.uT.value = t; snowMat.uniforms.uCam.value.copy(camera.position);

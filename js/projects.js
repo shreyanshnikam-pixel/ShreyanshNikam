@@ -30,9 +30,9 @@
     fragmentShader: [
       'uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uAmt; varying vec2 vUv;',
       'void main(){ vec3 base = texture2D(tDiffuse, vUv).rgb; if (uAmt < 0.001) { gl_FragColor = vec4(base, 1.0); return; }',
-      '  vec2 dl = (vUv - uSun) * (0.92 / 40.0); vec2 q = vUv; float acc = 0.0, dec = 1.0;',
-      '  for (int i = 0; i < 40; i++){ q -= dl; vec3 c = texture2D(tDiffuse, clamp(q, 0.0, 1.0)).rgb; acc += max(dot(c, vec3(0.2126, 0.7152, 0.0722)) - 1.12, 0.0) * dec; dec *= 0.955; }',
-      '  gl_FragColor = vec4(base + vec3(1.0, 0.985, 0.96) * acc / 40.0 * uAmt, 1.0); }'].join('\n'),
+      '  vec2 dl = (vUv - uSun) * (0.92 / 32.0); vec2 q = vUv; float acc = 0.0, dec = 1.0;',
+      '  for (int i = 0; i < 32; i++){ q -= dl; vec3 c = texture2D(tDiffuse, clamp(q, 0.0, 1.0)).rgb; acc += max(dot(c, vec3(0.2126, 0.7152, 0.0722)) - 1.12, 0.0) * dec; dec *= 0.945; }',
+      '  gl_FragColor = vec4(base + vec3(1.0, 0.985, 0.96) * acc / 32.0 * uAmt, 1.0); }'].join('\n'),
   });
   comp.addPass(rays);
   const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.32, 0.5, 0.985); comp.addPass(bloom);
@@ -58,7 +58,9 @@
   });
   comp.addPass(grade);
   const mobile = () => innerWidth < 760;
-  const DPR = () => Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2);
+  const DPR = () => Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2) * gov.q;
+  // adaptive resolution: drop the pixel ratio when frames run long, raise it again when there is headroom
+  const gov = { q: 1, ema: 16, n: 0 };
 
   // ---------- light and environment ----------
   const sun = new T.DirectionalLight(0xffffff, 2.0); sun.position.copy(SUN).multiplyScalar(60); S.add(sun);
@@ -147,8 +149,8 @@
       'uniform float uT, uS, uA; uniform vec3 uC; varying vec2 vUv;',
       'float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }',
       'float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }',
-      'float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a*n2(p); p *= 2.03; a *= 0.5; } return s; }',
-      'void main(){ vec2 p = vec2(vUv.x * 7.0 + uT * uS, vUv.y * 1.6); float n = fbm(p + vec2(fbm(p * 0.6 - uT * uS * 0.5), 0.0));',
+      'float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ s += a*n2(p); p *= 2.03; a *= 0.5; } return s / 0.94; }',
+      'void main(){ vec2 p = vec2(vUv.x * 7.0 + uT * uS, vUv.y * 1.6); float n = fbm(p + vec2(n2(p * 0.6 - uT * uS * 0.5) * 1.3, 0.0));',
       '  float a = smoothstep(0.32, 0.78, n) * smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.35, vUv.y) * smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);',
       '  gl_FragColor = vec4(uC * 1.04, a * uA); }'].join('\n'),
   });
@@ -355,6 +357,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible) { last = now; return; }
+    if (last) { gov.ema = gov.ema * 0.9 + Math.min(now - last, 120) * 0.1; if (++gov.n % 20 === 0) { const q = gov.ema > 34 ? Math.max(0.5, gov.q * 0.82) : gov.ema < 15 ? Math.min(1, gov.q + 0.05) : gov.q; if (q !== gov.q) { gov.q = q; layout(); } } }
     const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; const t = (now - t0) / 1000, idle = rm ? 0 : 1;
     mouse.lerp(mt, 1 - Math.exp(-dt * 2.5));
     // camera: breathing and a little pointer parallax, or the flight
