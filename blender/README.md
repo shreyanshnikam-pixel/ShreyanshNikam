@@ -126,7 +126,34 @@ python3 blender/encode.py --preset 8k240 --max-width 1920 --fps 240 --av1
 
 ---
 
-## 6. Realistic GPU Render Time & Disk Expectations
+## 6. Cloudflare R2 Hosting (3-Step Setup for GitHub Pages / Netlify)
+
+Large `100fps`, `4k`, and `8k240` frame sequences should live on **Cloudflare R2** (zero egress fees) instead of inside the Git repository. Only the tiny `assets/films/<film>/manifest.json` (with `"baseUrl"`) and `assets/films/index.json` are committed so GitHub Pages / Netlify deploys stay tiny while streaming full-resolution frames directly from R2.
+
+1. **Authenticate Wrangler** (installed at `D:\Tools\wrangler\node_modules\.bin\wrangler.cmd` or on `PATH`):
+   ```bat
+   wrangler login
+   ```
+2. **Create the bucket & enable its `r2.dev` public URL** (one-time in Cloudflare Dashboard):
+   - Create `shreyanshnikam-films` (or let `upload_r2.bat` create it automatically on first run).
+   - In **Cloudflare Dashboard → R2 → `shreyanshnikam-films` → Settings → Public access**, click **Allow Access** under *R2.dev subdomain* (or attach a custom domain) and copy the `https://pub-<id>.r2.dev` URL.
+3. **Upload frames, set CORS (`blender/r2-cors.json`), and wire local manifests**:
+   ```bat
+   REM Encode to D:\ShreyanshNikam-renders\encoded so Git never holds heavy frame files
+   python blender\encode.py --renders D:\ShreyanshNikam-renders --out D:\ShreyanshNikam-renders\encoded --preset 100fps
+
+   REM Preview the upload plan first (optional)
+   blender\upload_r2.bat --dry-run --bucket shreyanshnikam-films --public-url https://pub-<id>.r2.dev
+
+   REM Upload frames with immutable cache headers + write baseUrl into assets\films\<film>\manifest.json & index.json
+   blender\upload_r2.bat --bucket shreyanshnikam-films --public-url https://pub-<id>.r2.dev
+   ```
+
+`upload_r2.py` / `upload_r2.bat` automatically creates the bucket if missing, applies `blender/r2-cors.json` (allowing `GET`/`HEAD` from GitHub Pages, Netlify, and `localhost`), uploads frames with `Cache-Control: public, max-age=31536000, immutable` and exact MIME types (`image/webp`, `image/avif`, `video/mp4`, `application/json`), writes `"baseUrl": "https://pub-<id>.r2.dev/films/<film>/"` into `assets/films/<film>/manifest.json`, and updates `assets/films/index.json`.
+
+---
+
+## 7. Realistic GPU Render Time & Disk Expectations
 
 Cycles path tracing with caustics, refraction (IOR 1.31 / 1.333), subsurface scattering, and volumetrics scales roughly linearly with `pixels × frames × samples`. Typical estimates per **single film (one orientation)** on a modern desktop GPU (e.g. NVIDIA RTX 4080/4090 with OptiX + GPU OIDN; laptop GPUs are ~2–3× slower):
 
@@ -138,4 +165,4 @@ Cycles path tracing with caustics, refraction (IOR 1.31 / 1.333), subsurface sca
 | `4k` | 3840×2160 (24–100 fps) | 240–1,000 | ~25–75 s | **2–20 hours** | ~3–18 GB | ~90–600 MB *(host on Cloudflare R2)* |
 | `8k240` | 7680×4320 (240 fps) | 1,200–2,000 | ~1.5–4.5 min | **30–150 hours** *(1.2–6+ days)* | **~40–120 GB** | **~1.5–4.5 GB** *(Cloudflare R2 / CDN or `--max-width 1920`)* |
 
-**Hosting large sequences (Cloudflare R2):** Netlify static deploys work best when committed assets stay small. For `100fps`, `4k`, or `8k240` sequences, upload `assets/films/<name>/` (frames + `manifest.json`) to a public **Cloudflare R2** bucket (zero egress fees) and point `FilmPlayer.load(canvas, 'https://pub-<bucket>.r2.dev/films/<name>/manifest.json')` — or pass `--cdn-base https://pub-<bucket>.r2.dev/films` to `encode.py` / `render_films.bat` to record the external `baseUrl` in `manifest.json`. Keep raw PNG renders on `D:\ShreyanshNikam-renders` (never committed to Git).
+Keep raw PNG renders on `D:\ShreyanshNikam-renders` and encoded R2 staging copies in `D:\ShreyanshNikam-renders\encoded` (never committed to Git).
