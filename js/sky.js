@@ -22,6 +22,7 @@
   // ================= renderer, camera, post =================
   const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping;
+  R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap; R.shadowMap.autoUpdate = false;
   const S = new T.Scene(), C = new T.PerspectiveCamera(50, 1, 0.05, 120000);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
@@ -90,7 +91,8 @@
   const envBelow = (() => { const c = cnv(512, 256, (x, w, h) => {
     const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#5c6878'); g.addColorStop(0.42, '#8e9aaa'); g.addColorStop(0.5, '#c9b7ad'); g.addColorStop(0.52, '#c7ced6'); g.addColorStop(1, '#a9b3bd'); x.fillStyle = g; x.fillRect(0, 0, w, h);
     const az = Math.atan2(SUN.z, SUN.x), u = ((-az / (2 * Math.PI) + 0.5) % 1 + 1) % 1 * w; const rg = x.createRadialGradient(u, h * 0.5, 0, u, h * 0.5, w * 0.18); rg.addColorStop(0, 'rgba(255,190,140,.9)'); rg.addColorStop(1, 'rgba(255,190,140,0)'); x.fillStyle = rg; x.fillRect(0, 0, w, h); });
-    const t = new T.CanvasTexture(c); t.mapping = T.EquirectangularReflectionMapping; t.encoding = T.sRGBEncoding; return pm.fromEquirectangular(t).texture; })();
+    const t = new T.CanvasTexture(c); t.mapping = T.EquirectangularReflectionMapping; t.encoding = T.sRGBEncoding; const env = pm.fromEquirectangular(t).texture; t.dispose(); return env; })();
+  pm.dispose();
   S.environment = envBelow;
   const starsU = { uA: { value: 1 }, uScale: { value: 1 } };
   const stars = (() => { const N = mobile ? 1500 : 4000, p = new Float32Array(N * 3), a = new Float32Array(N);
@@ -103,29 +105,42 @@
 
   // ================= lights =================
   const hemi = new T.HemisphereLight(0x8a9ab0, 0xc9d3de, 0.8); S.add(hemi);
-  const sunL = new T.DirectionalLight(0xffb07a, 1.0); sunL.position.copy(SUN).multiplyScalar(1000); S.add(sunL);
+  const sunL = new T.DirectionalLight(0xffb07a, 1.0);
+  sunL.position.copy(SUN).multiplyScalar(1000);
+  sunL.castShadow = true;
+  sunL.shadow.mapSize.set(mobile ? 512 : 1024, mobile ? 512 : 1024);
+  sunL.shadow.camera.near = 20; sunL.shadow.camera.far = 2600;
+  sunL.shadow.camera.left = -260; sunL.shadow.camera.right = 260; sunL.shadow.camera.top = 260; sunL.shadow.camera.bottom = -260;
+  sunL.shadow.bias = -0.0004; sunL.shadow.normalBias = 0.06;
+  S.add(sunL); S.add(sunL.target);
   S.fog = new T.FogExp2(0x9aa7b6, 0.00016);
 
-  // ================= clouds: stacked fbm slices =================
-  const NSL = mobile ? 14 : 26;
-  const cloudU = { uT: { value: 0 }, uFogD: { value: 0.0001 }, uFogC: { value: new T.Color() }, uLit: { value: new T.Color() }, uShade: { value: new T.Color() }, uSunC: { value: new T.Color() }, uSun: { value: SUN.clone() }, uDen: { value: mobile ? 0.34 : 0.22 }, uClear: { value: 1 } };
+  // ================= clouds: stacked volumetric fbm slices with Henyey-Greenstein & Beer-Lambert scattering =================
+  const NSL = mobile ? 12 : 18;
+  const cloudU = { uT: { value: 0 }, uFogD: { value: 0.0001 }, uFogC: { value: new T.Color() }, uLit: { value: new T.Color() }, uShade: { value: new T.Color() }, uSunC: { value: new T.Color() }, uSun: { value: SUN.clone() }, uDen: { value: mobile ? 0.36 : 0.28 }, uClear: { value: 1 } };
   const cloudVS = LOGV + 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}';
   const cloudFS = LOGF + NOISE + [
     '\nuniform float uT, uH, uFogD, uDen, uClear; uniform vec3 uLit, uShade, uSunC, uSun, uFogC; varying vec3 vW;',
+    'float hg(float c, float g){ float g2 = g*g; return (1.0 - g2) / (4.0 * 3.14159265 * pow(max(1.0 + g2 - 2.0*g*c, 0.01), 1.5)); }',
     'void main(){',
-    '  vec3 d = vW - cameraPosition; float dist = length(d); vec3 vd = d / dist;',
+    '  vec3 d = vW - cameraPosition; float dist = length(d); vec3 vd = d / max(dist, 1e-3);',
     '  vec2 q = vW.xz * 0.00042 + vec2(uT*0.0035, uT*0.0012);',
     '  float n = 0.0, a = 0.5; vec3 p = vec3(q, uH*1.25);',
-    '  for (int i = 0; i < ' + (mobile ? 3 : 4) + '; i++){ n += a*nn3(p); p = p*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }',
+    '  for (int i = 0; i < 3; i++){ n += a*nn3(p); p = p*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }',
     '  n = n * 0.82 + nn3(vec3(vW.xz*0.0024, uH*3.0 + uT*0.02)) * 0.18;',
     '  float cov = mix(0.26, 0.6, pow(uH, 1.2)) + smoothstep(9000.0, 17000.0, vW.x) * 0.45 * uClear;',
     '  float den = smoothstep(cov, cov + 0.17, n);',
     '  if (den < 0.003) discard;',
     '  float al = den * uDen * smoothstep(0.0, 45.0, abs(vW.y - cameraPosition.y)) * (1.0 - smoothstep(32000.0, 62000.0, dist));',
-    '  float lit = clamp(pow(uH, 0.8) * (0.55 + 2.2*(n - cov)), 0.0, 1.0);',
+    '  float tau = (1.0 - uH) * 1.65 + max(0.0, n - cov) * 2.2;',
+    '  float beer = exp(-tau * 0.85); float powder = 1.0 - exp(-tau * 2.1);',
+    '  float mu = dot(vd, uSun); float phase = mix(hg(mu, 0.72), hg(mu, -0.25), 0.25);',
+    '  float lit = clamp(pow(uH, 0.78) * (0.5 + 1.8*(n - cov)) * (0.65 + 0.55*beer*powder), 0.0, 1.0);',
     '  vec3 col = mix(uShade, uLit, lit);',
-    '  col += uSunC * pow(max(dot(vd, uSun), 0.0), 7.0) * (0.25 + 0.75*uH);',
-    '  float f = 1.0 - exp(-dist * uFogD); col = mix(col, uFogC, f);',
+    '  col += uSunC * (clamp(phase * 1.35, 0.0, 2.2) * (0.25 + 0.75*uH) * (0.45 + 0.55*beer));',
+    '  float rayleigh = 1.0 - exp(-dist * uFogD);',
+    '  vec3 mieHorizon = uFogC + uSunC * pow(max(mu, 0.0), 6.0) * 0.28;',
+    '  col = mix(col, mieHorizon, rayleigh);',
     '  gl_FragColor = vec4(col, al);',
     '#include <logdepthbuf_fragment>',
     '}'].join('\n');
@@ -159,11 +174,11 @@
       '#endif'].join('\n'));
   };
   gMat.customProgramCacheKey = () => 'sky-ground';
-  const ground = new T.Mesh(new T.PlaneGeometry(160000, 160000).rotateX(-Math.PI / 2), gMat); ground.position.set(0, 0, 0); grp.airport.add(ground);
+  const ground = new T.Mesh(new T.PlaneGeometry(160000, 160000).rotateX(-Math.PI / 2), gMat); ground.position.set(0, 0, 0); ground.receiveShadow = true; grp.airport.add(ground);
 
-  // ================= runway 27/09: one surface, markings painted in the shader =================
+  // ================= runway 27/09: one surface, markings + per-pixel aircraft contact shadow in shader =================
   function thresholdCanvas(num) { // 45 m wide x 450 m, the aircraft rolls toward the top of the canvas
-    return cnv(512, 5120, (x, w, h) => {
+    return cnv(256, 2560, (x, w, h) => {
       const px = w / 45, m = h / 450, Y = (v) => h - v * m; x.clearRect(0, 0, w, h);
       x.fillStyle = '#fff';
       x.fillRect(0.6 * px, 0, 0.9 * px, h); x.fillRect(w - 1.5 * px, 0, 0.9 * px, h);
@@ -175,12 +190,12 @@
     });
   }
   const tileCanvas = () => cnv(256, 341, (x, w, h) => { const px = w / 45; x.clearRect(0, 0, w, h); x.fillStyle = '#fff'; x.fillRect(0.6 * px, 0, 0.9 * px, h); x.fillRect(w - 1.5 * px, 0, 0.9 * px, h); x.fillRect(w / 2 - 0.45 * px, 0, 0.9 * px, 36 * (h / 60)); });
-  const rwU = { tThr: { value: ctex(thresholdCanvas('27'), false) }, tThr2: { value: ctex(thresholdCanvas('9'), false) }, tTile: { value: ctex(tileCanvas(), false, [1, 1]) } };
+  const rwU = { tThr: { value: ctex(thresholdCanvas('27'), false) }, tThr2: { value: ctex(thresholdCanvas('9'), false) }, tTile: { value: ctex(tileCanvas(), false, [1, 1]) }, uPlanePos: { value: V(-9000, 500, 0) } };
   const rwMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
   rwMat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, rwU);
     sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = 'varying vec3 vWP; uniform sampler2D tThr, tThr2, tTile;\n' + NOISE + '\n' + sh.fragmentShader.replace('#include <map_fragment>', [
+    sh.fragmentShader = 'varying vec3 vWP; uniform sampler2D tThr, tThr2, tTile; uniform vec3 uPlanePos;\n' + NOISE + '\n' + sh.fragmentShader.replace('#include <map_fragment>', [
       '#ifdef USE_MAP',
       ' vec2 q = vWP.xz; vec3 asp = mix(texture2D(map, q/14.0).rgb, texture2D(map, q/61.0+0.4).rgb, 0.4) * 0.92;',
       ' float u = q.x, v = q.y; float paint = 0.0;',
@@ -192,11 +207,17 @@
       ' float snowE = smoothstep(19.0, 25.0, abs(v) + nn2(q*0.35)*3.0) + smoothstep(0.62, 0.78, ff2(q*0.05)) * 0.35;',
       ' vec3 col = mix(asp, vec3(0.93, 0.95, 0.97), paint * 0.92);',
       ' col = mix(col, vec3(0.9, 0.93, 0.96), clamp(snowE, 0.0, 1.0));',
+      ' float py = max(1.0, uPlanePos.y); float spread = 1.0 + py * 0.045;',
+      ' vec2 dp = q - uPlanePos.xz;',
+      ' float fus = exp(-((dp.x*dp.x)/(760.0*spread*spread) + (dp.y*dp.y)/(36.0*spread*spread)));',
+      ' float wing = exp(-(((dp.x + 2.0)*(dp.x + 2.0))/(95.0*spread*spread) + (dp.y*dp.y)/(780.0*spread*spread)));',
+      ' float csh = clamp(max(fus, wing), 0.0, 1.0) * (1.0 - smoothstep(15.0, 220.0, py)) * 0.48;',
+      ' col *= (1.0 - csh);',
       ' diffuseColor.rgb *= col;',
       '#endif'].join('\n'));
   };
   rwMat.customProgramCacheKey = () => 'sky-runway';
-  const runway = new T.Mesh(new T.PlaneGeometry(3080, 62).rotateX(-Math.PI / 2), rwMat); runway.position.set(1500, 0.3, 0); grp.airport.add(runway);
+  const runway = new T.Mesh(new T.PlaneGeometry(3080, 62).rotateX(-Math.PI / 2), rwMat); runway.position.set(1500, 0.3, 0); runway.receiveShadow = true; grp.airport.add(runway);
   const taxM = new T.MeshStandardMaterial({ color: 0x9a9ea3, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
   const addPave = (w, d, x, z) => { const m = new T.Mesh(new T.PlaneGeometry(w, d).rotateX(-Math.PI / 2), taxM); m.position.set(x, 0.25, z); grp.airport.add(m); return m; };
   addPave(3300, 23, 1550, 190); for (const xx of [20, 900, 1800, 2950]) addPave(23, 170, xx, 105); addPave(1500, 260, 1700, 340);
@@ -267,8 +288,16 @@
   // ================= airport buildings (snow on the roofs) =================
   function windowsTex(cols, rows, lit) { return cnv(512, 256, (x, w, h) => { x.fillStyle = '#1b2028'; x.fillRect(0, 0, w, h); const cw = w / cols, rh = h / rows; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) { const on = rnd() < lit; x.fillStyle = on ? `rgba(255,${205 + rnd() * 40},${150 + rnd() * 60},${0.6 + rnd() * 0.4})` : 'rgba(70,90,110,.35)'; x.fillRect(i * cw + 2, j * rh + 3, cw - 4, rh - 6); } }); }
   function concreteTex(w, h, rows) {
-    const c = cnv(w, h, (x) => { x.fillStyle = '#c9c6c0'; x.fillRect(0, 0, w, h);
-      for (let i = 0; i < 50000; i++) { const v = rnd(); x.fillStyle = v > 0.5 ? `rgba(255,255,255,${(v - 0.5) * 0.12})` : `rgba(40,35,30,${(0.5 - v) * 0.14})`; x.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2); }
+    const c = cnv(w, h, (x) => {
+      const img = x.createImageData(w, h), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (rnd() - 0.5) * 26;
+        d[i] = Math.max(0, Math.min(255, 201 + n));
+        d[i + 1] = Math.max(0, Math.min(255, 198 + n));
+        d[i + 2] = Math.max(0, Math.min(255, 192 + n));
+        d[i + 3] = 255;
+      }
+      x.putImageData(img, 0, 0);
       for (let i = 0; i < 40; i++) { const gx = rnd() * w, g = x.createLinearGradient(gx, 0, gx + 6, 0); g.addColorStop(0, 'rgba(60,52,44,0)'); g.addColorStop(0.5, `rgba(60,52,44,${0.04 + rnd() * 0.07})`); g.addColorStop(1, 'rgba(60,52,44,0)'); x.fillStyle = g; x.fillRect(gx, rnd() * h * 0.5, 6, h * (0.3 + rnd() * 0.7)); }
       x.fillStyle = 'rgba(70,62,54,.3)'; for (let r = 1; r < rows; r++) x.fillRect(0, r * h / rows, w, 2); });
     const t = ctex(c, true); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
@@ -438,6 +467,7 @@
       };
       pm2.customProgramCacheKey = () => 'livery-sky';
       mesh.material = pm2;
+      mesh.castShadow = true; mesh.receiveShadow = true;
       mesh.geometry = T.BufferGeometryUtils && T.BufferGeometryUtils.toCreasedNormals ? T.BufferGeometryUtils.toCreasedNormals(mesh.geometry, Math.PI / 5) : (mesh.geometry.computeVertexNormals(), mesh.geometry);
       mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.set(1, 1, 1);
       body.add(mesh); plane.mesh = mesh; plane.gear = gear(body);
@@ -455,6 +485,15 @@
     Object.values(sp).forEach((s) => body.add(s));
     for (const [z, len] of [[-6.5, 240], [6.5, 240], [0, 160]]) { const g = new T.ConeGeometry(len * 0.1, len, 28, 1, true); g.translate(0, -len / 2, 0); g.rotateZ(Math.PI / 2); const c = new T.Mesh(g, coneMat); c.position.set(z ? 9.5 : 23, z ? 2.3 : 0.2, z); c.rotation.z = -3 * DEG; c.renderOrder = 61; c.frustumCulled = false; body.add(c); plane.cones.push(c); } }
   const ENG = [V(9.6, 2.85, 11.8), V(0.4, 3.4, 21.1), V(9.6, 2.85, -11.8), V(0.4, 3.4, -21.1)];
+  // heat-shimmer / exhaust plume behind the four engines
+  const heatU = { uT: lpT, uN1: { value: 0.42 } };
+  const heatMat = new T.ShaderMaterial({ uniforms: heatU, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide,
+    vertexShader: LOGV + 'varying vec2 vUv; varying vec3 vN, vV; void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv;\n#include <logdepthbuf_vertex>\n}',
+    fragmentShader: LOGF + 'uniform float uT, uN1; varying vec2 vUv; varying vec3 vN, vV; void main(){ float edge = pow(abs(dot(vN, vV)), 1.3); float wave = 0.65 + 0.35 * sin(vUv.y * 44.0 - uT * 52.0 + sin(vUv.x * 18.0 + uT * 19.0)); float fade = smoothstep(0.0, 0.14, vUv.y) * pow(1.0 - vUv.y, 1.8); float a = fade * edge * wave * (0.04 + 0.16 * uN1); vec3 col = mix(vec3(0.88, 0.92, 0.98), vec3(1.0, 0.78, 0.56), smoothstep(0.35, 0.95, uN1) * (1.0 - vUv.y)); gl_FragColor = vec4(col * a, 1.0);\n#include <logdepthbuf_fragment>\n}' });
+  plane.plumes = ENG.map((e) => {
+    const g = new T.CylinderGeometry(1.15, 2.4, 26, 16, 1, true); g.translate(0, -13, 0); g.rotateZ(-Math.PI / 2);
+    const m = new T.Mesh(g, heatMat); m.position.set(e.x - 2.2, e.y, e.z); m.renderOrder = 61; m.frustumCulled = false; body.add(m); return m;
+  });
 
   // ================= the cockpit (built in code) =================
   const ck = {}; // display canvases and moving parts
@@ -550,11 +589,11 @@
     ck.rig = new T.Object3D(); Gc.add(ck.rig);
     return Gc;
   }
-  const wetU = { uT: lpT, uWet: { value: 0 }, uFlow: { value: 1 } };
+  const wetU = { uT: lpT, uWet: { value: 0 }, uFlow: { value: 1 }, uSun: { value: SUN.clone() } };
   const wetMat = new T.ShaderMaterial({ uniforms: wetU, transparent: true, depthWrite: false, side: T.DoubleSide,
-    vertexShader: LOGV + 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n#include <logdepthbuf_vertex>\n}',
+    vertexShader: LOGV + 'varying vec2 vUv; varying vec3 vWN, vWP; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vWP = w.xyz; vWN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}',
     fragmentShader: LOGF + [
-      'uniform float uT, uWet, uFlow; varying vec2 vUv;',
+      'uniform float uT, uWet, uFlow; uniform vec3 uSun; varying vec2 vUv; varying vec3 vWN, vWP;',
       'float h1(float n){ return fract(sin(n)*43758.5453); } float h2(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }',
       'void main(){',
       '  float s = 0.0, dr = 0.0;',
@@ -567,8 +606,13 @@
       '    s += line * (0.6 + 0.4*sin(y*30.0)); }',
       '  vec2 dp = vUv * vec2(60.0, 22.0); vec2 id = floor(dp); vec2 f = fract(dp) - 0.5 - (vec2(h2(id), h2(id+3.1)) - 0.5)*0.6; float rr = h2(id+7.7);',
       '  dr = smoothstep(0.16*rr, 0.0, length(f)) * step(0.55, rr);',
-      '  float a = (s * 0.42 + dr * 0.38) * uWet + 0.035*uWet;',
-      '  vec3 c = mix(vec3(0.15, 0.18, 0.22), vec3(1.0), clamp(s*0.6 + dr, 0.0, 1.0));',
+      '  vec3 Vv = normalize(cameraPosition - vWP); vec3 N = normalize(vWN);',
+      '  float ndv = abs(dot(N, Vv)); float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);',
+      '  float glint = pow(max(dot(normalize(uSun + Vv), N), 0.0), 36.0) * (s + dr);',
+      '  float cond = (s * 0.42 + dr * 0.38) * uWet + 0.035*uWet;',
+      '  float a = clamp(cond + fres * 0.14, 0.0, 0.85);',
+      '  vec3 glassCol = mix(vec3(0.42, 0.54, 0.68), vec3(1.0, 0.86, 0.72), pow(max(dot(-Vv, uSun), 0.0), 4.0));',
+      '  vec3 c = mix(glassCol, vec3(1.0), clamp(s*0.6 + dr + glint*0.85, 0.0, 1.0));',
       '  gl_FragColor = vec4(c, a);',
       '#include <logdepthbuf_fragment>',
       '}'].join('\n') });
@@ -672,7 +716,7 @@
     BIRD.push({ o, ph: rnd() * 10, sp: 0.7 + rnd() * 0.6 });
   }
   const flockC = (p, out) => { const k = clamp((p - 0.38) / (0.95 - 0.38), 0, 1); return out.set(-1080 + Math.sin(k * 3.2) * 90 - 60 * k, 82 + Math.sin(k * 5.0) * 10 - k * 12, lerp(560, -420, k)); };
-  const _m4 = new T.Matrix4(), _q = new T.Quaternion(), _e = new T.Euler(), _v1 = V(0, 0, 0), _v2 = V(0, 0, 0), _sc = V(1, 1, 1);
+  const _m4 = new T.Matrix4(), _q = new T.Quaternion(), _e = new T.Euler(), _v1 = V(0, 0, 0), _v2 = V(0, 0, 0), _v3 = V(0, 0, 0), _sc = V(1, 1, 1);
   const birdPos = (i, p, t, out) => {
     const b = BIRD[i]; flockC(p, _v1); flockC(p + 0.004, _v2); const hd = Math.atan2(-(_v2.z - _v1.z), _v2.x - _v1.x);
     const sw = ss(0.5, 0.9, p) * (i % 3 - 1) * 1.4 + Math.sin(t * 0.21 * b.sp + b.ph) * 0.25; const a = hd + sw * (i >= 30 ? 1 : 0.25);
@@ -845,7 +889,8 @@
       ox.moveTo(x0, y0 + c); ox.lineTo(x0, y0); ox.lineTo(x0 + c, y0); ox.moveTo(x0 + w2 - c, y0); ox.lineTo(x0 + w2, y0); ox.lineTo(x0 + w2, y0 + c);
       ox.moveTo(x0 + w2, y0 + h2 - c); ox.lineTo(x0 + w2, y0 + h2); ox.lineTo(x0 + w2 - c, y0 + h2); ox.moveTo(x0 + c, y0 + h2); ox.lineTo(x0, y0 + h2); ox.lineTo(x0, y0 + h2 - c); ox.stroke();
       // track: where this bird was over the last few seconds
-      ox.strokeStyle = 'rgba(47,111,228,.75)'; ox.lineWidth = 1; ox.beginPath(); for (let j = 0; j <= 7; j++) { birdPos(i, p - j * 0.0035, lt - j * 0.4, _v2); const q2 = proj(_v2, cam); j ? ox.lineTo(q2.x, q2.y) : ox.moveTo(q2.x, q2.y); } ox.stroke();
+      ox.strokeStyle = 'rgba(47,111,228,.75)'; ox.lineWidth = 1; ox.beginPath(); let trStarted = false;
+      for (let j = 0; j <= 7; j++) { birdPos(i, p - j * 0.0035, lt - j * 0.4, _v3); const q2 = proj(_v3, cam); if (!q2.ok) { trStarted = false; continue; } trStarted ? ox.lineTo(q2.x, q2.y) : ox.moveTo(q2.x, q2.y); trStarted = true; } ox.stroke();
       if (i % 4 === 0 || W > 900 && i % 2 === 0) { ox.fillStyle = SIGNAL; const lab = 'B-' + String(i + 1).padStart(2, '0'); const tw = ox.measureText(lab).width + 8; ox.fillRect(x0, y0 - 14, tw, 13); ox.fillStyle = '#fff'; ox.fillText(lab, x0 + 4, y0 - 4); }
     }
     // drone
@@ -857,7 +902,7 @@
     ox.fillStyle = Math.sin(t * 6) > 0 ? '#ff3b30' : 'rgba(255,59,48,.3)'; ox.beginPath(); ox.arc(L0 + 5, top + 52, 4, 0, 7); ox.fill(); ox.fillStyle = 'rgba(234,242,248,.8)';
     ox.fillText('LIVE  06:41:' + String(8 + Math.floor(k * 10)).padStart(2, '0') + '  ·  ' + shown + ' BIRDS  ·  1 DRONE', L0 + 16, top + 56);
     // risk meter
-    const mw = Math.min(280, W * 0.6), mx = mobile ? L0 : W - mw - 40, my = mobile ? H - 170 : top + 26;
+    const mw = Math.min(280, W - L0 * 2 - 24), mx = mobile ? L0 + 12 : W - mw - 40, my = mobile ? top + 82 : top + 26;
     ox.fillStyle = 'rgba(8,13,19,.6)'; ox.fillRect(mx - 12, my - 10, mw + 24, 70);
     ox.fillStyle = 'rgba(234,242,248,.8)'; ox.fillText('RUNWAY RISK', mx, my + 6);
     const lvl = risk > 0.66 ? 'HIGH' : risk > 0.36 ? 'ELEVATED' : 'LOW', lc = risk > 0.66 ? '#ff3b30' : risk > 0.36 ? '#ffc23d' : '#3ddc84';
@@ -883,7 +928,7 @@
     });
   }
   const _ap = V(0, 0, 0);
-  const setPan = (pn, world) => { _ap.copy(world).applyMatrix4(C.matrixWorldInverse); const ct = AU.ac.currentTime; pn.positionX.setTargetAtTime(_ap.x, ct, 0.05); pn.positionY.setTargetAtTime(_ap.y, ct, 0.05); pn.positionZ.setTargetAtTime(_ap.z, ct, 0.05); };
+  const setPan = (pn, world) => { _ap.copy(world).applyMatrix4(C.matrixWorldInverse); const ct = AU.ac.currentTime; if (pn.positionX) { pn.positionX.setTargetAtTime(_ap.x, ct, 0.05); pn.positionY.setTargetAtTime(_ap.y, ct, 0.05); pn.positionZ.setTargetAtTime(_ap.z, ct, 0.05); } else pn.setPosition(_ap.x, _ap.y, _ap.z); };
   const voiceSrc = (kind, mode) => {
     if (mode === 'tower') return kind === 'alert' ? towerLocal(Math.sin(0.27) * 5.4, CAB + 1.1, -Math.cos(0.27) * 5.4) : towerLocal(0.6, CAB + 1.0, -5.2);
     if (mode === 'cockpit') return C.localToWorld(V(kind === 'cabin' ? 0.6 : -0.25, -0.1, kind === 'cabin' ? -1.2 : -0.3));
@@ -981,21 +1026,24 @@
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible) return;
-    const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; lt += dt; const t = lt;
+    const dt = clamp((now - (last || now)) / 1000, 0.0005, 0.05); last = now; lt += dt; const t = lt;
     const rf = film.getBoundingClientRect(), filmOn = rf.bottom > innerHeight * 0.02;
     const p0 = forced != null ? forced : filmP();
-    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 5)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
+    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 6)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
     const p = clamp(ps, 0, 1);
     govern(now);
     const back = forced == null && !filmOn;
-    // backdrop: slower, cheaper frames
-    if (back && (frameN++ % 2)) return;
+    frameN++;
+    // backdrop: lighter frame cadence when scroll is past the film
+    if (back && (frameN % 2)) return;
     lpT.value = t; flockU.uT.value = t; cloudU.uT.value = t; snowU.uT.value = t; G.uT.value = t;
     const st = planeAt(p, t);
     PL.position.set(st.x, st.y, st.z); PL.rotation.set(0, 0, 0); body.rotation.set(st.roll * DEG, 0, st.pitch * DEG);
+    rwU.uPlanePos.value.copy(PL.position);
+    heatU.uN1.value = st.n1;
     if (plane.gear) { plane.gear.scale.y = Math.max(0.01, st.gear); plane.gear.visible = st.gear > 0.02; }
     updateFlock(p, t);
-    drone.position.set(DRONE0.x + Math.sin(t * 0.3) * 2, DRONE0.y + Math.sin(t * 0.9) * 0.4, DRONE0.z + Math.cos(t * 0.25) * 1.5); drone.rotation.y = Math.sin(t * 0.2) * 0.4; dr.props.forEach((pr, i) => { pr.rotation.y += (i % 2 ? 1 : -1) * 0.9; });
+    drone.position.set(DRONE0.x + Math.sin(t * 0.3) * 2, DRONE0.y + Math.sin(t * 0.9) * 0.4, DRONE0.z + Math.cos(t * 0.25) * 1.5); drone.rotation.y = Math.sin(t * 0.2) * 0.4; dr.props.forEach((pr, i) => { pr.rotation.y += (i % 2 ? 1 : -1) * dt * 55; });
     dr.leds.forEach((l, i) => { l.visible = Math.sin(t * 6 + i) > -0.2; }); dr.strobe.visible = (t * 1.2) % 1 < 0.06;
     PL.updateMatrixWorld(true);
     let sh;
@@ -1004,7 +1052,8 @@
       sh = { mode: 'back', pos: V(-30000 + k * 9000 + Math.sin(t * 0.05) * 60, 2350 - k * 500 + Math.sin(t * 0.13) * 8, -1500 + Math.sin(k * 3) * 800), fov: W / H < 0.9 ? 70 : 48 };
       sh.look = sh.pos.clone().add(V(1000, -110 - k * 80, -380 + Math.sin(t * 0.04) * 60));
     } else sh = shot(p, t, ps);
-    if (sh.mode !== mode) { mode = sh.mode; }
+    const modeChanged = sh.mode !== mode;
+    if (modeChanged) { mode = sh.mode; }
     setLook(sh);
     mouse.lerp(mt, 1 - Math.exp(-dt * 2)); if (sh.mode !== 'sentry') { C.rotateY(-mouse.x * 0.02); C.rotateX(-mouse.y * 0.014); }
     if (sh.shake) { const k = sh.shake; C.rotateX((Math.random() - 0.5) * 0.012 * k); C.rotateY((Math.random() - 0.5) * 0.012 * k); C.position.y += (Math.random() - 0.5) * 0.25 * k; }
@@ -1014,6 +1063,12 @@
     if (plane.mesh) plane.mesh.visible = !cockpit; grp.cockpit.visible = cockpit;
     Object.values(plane.sprites).forEach((s) => { s.visible = !cockpit; });
     plane.cones.forEach((c) => { c.visible = !cockpit && !back; });
+    plane.plumes.forEach((c) => { c.visible = !cockpit && !back; });
+    // keep sun shadow frustum centered on the active hero subject; refresh shadow map on hero shots only
+    const shCenter = inTower ? TWR : PL.position;
+    sunL.target.position.copy(shCenter); sunL.target.updateMatrixWorld();
+    sunL.position.copy(shCenter).addScaledVector(SUN, 900);
+    if (!back && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 2 === 0)) R.shadowMap.needsUpdate = true;
     grp.airport.visible = grp.tower.visible = !back; grp.flock.visible = !back && p > 0.3; drone.visible = phoneG.visible = !back && p > 0.3 && p < 0.9; vort.pts.visible = !back;
     // atmosphere: above, inside or below the cloud deck
     const cy = C.position.y; const approach = C.position.x < 9000;
@@ -1030,8 +1085,12 @@
     else if (above) { cloudU.uLit.value.setRGB(0.78 + pre * -0.25, 0.6 - pre * 0.2, 0.55 - pre * 0.12); cloudU.uShade.value.setRGB(0.16, 0.19, 0.28); cloudU.uSunC.value.setRGB(1.0, 0.55, 0.3).multiplyScalar(1 - pre * 0.5); }
     else { cloudU.uLit.value.setRGB(0.62, 0.65, 0.72); cloudU.uShade.value.setRGB(0.36, 0.39, 0.46); cloudU.uSunC.value.setRGB(0.9, 0.55, 0.35); }
     hemi.intensity = back ? 1.2 : above ? 0.35 + (1 - pre) * 0.35 : 0.75; sunL.intensity = back ? 2 : above ? 0.8 * (1 - pre * 0.7) : 0.55;
-    // render order of the cloud slices: far to near
-    slices.forEach((m) => { m.renderOrder = 10 + Math.round(2000 - Math.abs(cy - m.userData.y)); m.visible = !back || m.userData.y > CB + 300; });
+    // render order of the cloud slices: far to near; cull upper slices during low ground/sentry/tower shots
+    const lowShot = !back && !above && inCloud < 0.05 && cy < 260;
+    slices.forEach((m, i) => {
+      m.renderOrder = 10 + Math.round(2000 - Math.abs(cy - m.userData.y));
+      m.visible = back ? m.userData.y > CB + 300 : lowShot ? i < 6 : true;
+    });
     const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.renderOrder = 3001;
     sky.position.copy(C.position); stars.position.copy(C.position);
     lpScale.value = H * R.getPixelRatio() / (2 * Math.tan(C.fov * DEG / 2));
@@ -1049,11 +1108,11 @@
     // sentry state and grade
     const alert = p > 0.652 && p < 0.80 ? 1 : 0, risk = clamp(0.12 + ss(0.56, 0.635, p) * 0.86, 0, 1);
     if (towerFx.red) { towerFx.red.intensity = alert ? 3.2 * (Math.sin(t * 11) > -0.3 ? 1 : 0.2) : 0; towerFx.dome.material.color.setRGB(alert && Math.sin(t * 11) > -0.3 ? 4 : 0.25, 0.04, 0.03); }
-    if (inTower && (frameN++ % 3 === 0)) {
+    if (inTower && (modeChanged || forced != null || frameN % 3 === 0)) {
       drawScreens(t, { alert, risk, ga: st.ga, ft: st.ft, kt: st.kt, nm: st.nm, flock: flockC(p, V(0, 0, 0)) });
       sentAim(clamp(p, 0.6, 0.64)); grp.tower.visible = false; const fg = S.fog.density; R.setRenderTarget(feedRT); R.render(S, sentCam); R.setRenderTarget(null); grp.tower.visible = true; S.fog.density = fg;
     }
-    if (cockpit && (frameN++ % 4 === 0)) {
+    if (cockpit && (modeChanged || forced != null || frameN % 4 === 0)) {
       const s2 = { pitch: st.pitch, roll: st.roll, kt: st.kt, ft: st.ft, hdg: 270 + Math.sin(t * 0.2) * 0.6, ga: st.ga, app: st.app, gsd: Math.sin(t * 0.5) * 0.15, nm: Math.max(0.3, st.nm), n1: st.n1, gear: st.gear, sel: st.ga ? 160 : st.app ? 140 : 250, tfc: p > 0.9 };
       drawPFD(ck.pfd.getContext('2d'), 512, 512, s2); drawND(ck.nd.getContext('2d'), 512, 512, s2); drawEICAS(ck.eicas.getContext('2d'), 512, 512, s2); drawMCP(ck.mcp.getContext('2d'), 1536, 128, s2);
       ck.pfdT.needsUpdate = ck.ndT.needsUpdate = ck.eicasT.needsUpdate = ck.mcpT.needsUpdate = true;
@@ -1065,7 +1124,7 @@
     if (cockpit && !above) exp *= 1.0;
     exp *= 1 - inCloud * 0.12 + (inCloud > 0.2 ? (Math.sin(t * 23) * 0.5 + Math.sin(t * 37)) * 0.04 * inCloud : 0);
     let dip = 0; if (!back) for (const c of CUTS) { const d = Math.abs(p - c); dip = Math.max(dip, 1 - ss(0.0007, 0.0045, d)); }
-    let white = back ? Math.max(0, 1 - ss(innerHeight * 0.0, innerHeight * 0.9, innerHeight - rf.bottom)) * 0.9 : inCloud * 0.55 + ss(0.935, 0.975, p) * 1.0;
+    let white = back ? ss(-innerHeight * 0.85, innerHeight * 0.02, rf.bottom) * 0.95 : inCloud * 0.55 + ss(0.935, 0.975, p) * 1.0;
     if (!back && p > 0.53 && p < 0.548) white = Math.max(white, 1 - ss(0.0, 0.006, Math.abs(p - 0.545)));
     G.uExp.value = exp; G.uDip.value = dip * (p > 0.53 && p < 0.55 ? 0 : 1); G.uWhite.value = Math.min(1, white);
     G.uSensor.value = sh.mode === 'sentry' ? 1 : 0; G.uCA.value = 0.0012 + (sh.shake || 0) * 0.006; G.uSat.value = back ? 0.55 : 1;
