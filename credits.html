@@ -9,38 +9,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
 <style>
-.cr-hero{padding:150px var(--pad) 40px}
+/* backdrop: js/credits-bg.js draws blue-hour mountains on canvas#bg; all text sits on near-opaque frosted sheets in Polar ink (AA) */
+.sheet{position:relative;max-width:1240px;padding:clamp(22px,3.2vw,46px);border-radius:26px;background:rgba(244,247,250,.9);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);border:1px solid rgba(255,255,255,.9);box-shadow:0 40px 100px -50px rgba(15,27,38,.45),inset 0 1px 0 #fff}
+.sheet .label,.sheet .hud,.sheet .src{color:var(--ink)}
+.cr-hero{padding:130px var(--pad) 30px}.cr-hero .sheet{max-width:1080px}
 .cr-hero h1 .dot{color:var(--signal)}
 .cr-hero .lead{margin-top:28px;max-width:60ch}
 .cr-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:40px;max-width:1100px}
-.cr-notes .glass{padding:22px 24px}
+.cr-notes .note{padding:20px 22px;border:1px solid var(--glacier);border-radius:16px;background:rgba(255,255,255,.55)}
 .cr-notes p{margin:0;font-size:15.5px}
-.cr-notes .hud{display:block;margin-bottom:10px;color:var(--deep)}
-.cr-block{padding:60px var(--pad) 20px}
+.cr-notes .hud{display:block;margin-bottom:10px}
+.cr-block{padding:40px var(--pad) 20px}
 .cr-block h2.display{font-size:clamp(30px,3.6vw,56px)}
-.cr-block .intro{margin:18px 0 0;color:var(--slate);font-size:16px}
-.tbl{margin-top:30px;padding:8px 22px 10px;overflow:hidden}
+.cr-block .intro{margin:18px 0 0;color:var(--ink);font-size:16px}
+.tbl{margin-top:26px}
 table.cr{width:100%;border-collapse:collapse;font-size:15px;line-height:1.5;table-layout:fixed}
-table.cr caption{text-align:left;padding:14px 0 12px;font:500 11.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+table.cr caption{text-align:left;padding:0 0 12px;font:500 11.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
 table.cr thead th:nth-child(1){width:21%}table.cr thead th:nth-child(2){width:25%}table.cr thead th:nth-child(3){width:19%}table.cr thead th:nth-child(4){width:21%}table.cr thead th:nth-child(5){width:14%}
-table.cr thead th{text-align:left;font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:10px 14px 10px 0;border-bottom:1px solid var(--glacier);font-weight:500}
+table.cr thead th{text-align:left;font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);padding:10px 14px 10px 0;border-bottom:1px solid var(--glacier);font-weight:500}
 table.cr tbody th,table.cr td{text-align:left;vertical-align:top;padding:15px 14px 15px 0;border-bottom:1px solid var(--glacier);overflow-wrap:anywhere}
 table.cr tbody tr:last-child th,table.cr tbody tr:last-child td{border-bottom:0}
 table.cr tbody th{font-weight:600;color:var(--ink)}
-table.cr td.use{color:var(--slate)}
-table.cr td.lic{font:500 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--deep);overflow-wrap:break-word}
+table.cr td.use{color:var(--ink)}
+table.cr td.lic{font:500 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink);overflow-wrap:break-word}
 table.cr td a{text-decoration:none;border-bottom:1px solid var(--glacier);transition:border-color .4s var(--ease)}
 table.cr td a:hover{border-color:var(--ink)}
-table.cr .none td{color:var(--slate);font-style:italic}
-.small{font-size:14px;color:var(--slate);max-width:90ch;margin-top:18px}
-.later{border:1px dashed var(--glacier);border-radius:20px;padding:6px 22px 10px;margin-top:30px;background:rgba(244,247,250,.4)}
-.built{padding:70px var(--pad) 90px}
+table.cr .none td{color:var(--ink);font-style:italic}
+.small{font-size:14px;color:var(--ink);max-width:90ch;margin:18px 0 0}
+.later{border:1px dashed var(--deep);border-radius:18px;padding:18px 22px 10px;margin-top:26px;background:rgba(255,255,255,.5)}
+.built{padding:40px var(--pad) 90px}
 .built h2.display{font-size:clamp(30px,3.6vw,56px)}
 .built .lead{margin-top:22px}
 /* phones: each row becomes a stacked card with its own labels, no horizontal scrolling */
 @media (max-width:900px){
   .cr-notes{grid-template-columns:1fr}
-  .tbl,.later{padding:4px 16px 6px}
+  .later{padding:14px 16px 6px}
+  .sheet{border-radius:20px}
   table.cr{table-layout:auto}
   table.cr,table.cr caption,table.cr tbody,table.cr tr,table.cr th,table.cr td{display:block;width:auto!important}
   table.cr thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -49,9 +53,10 @@ table.cr .none td{color:var(--slate);font-style:italic}
   table.cr tbody th,table.cr td{border:0;padding:3px 0}
   table.cr tbody th{font-size:16.5px;padding-bottom:8px}
   table.cr td{position:relative;padding:3px 0 3px 94px;min-height:26px}
-  table.cr td::before{content:attr(data-label);position:absolute;left:0;top:5px;width:86px;font:500 10.5px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  table.cr td::before{content:attr(data-label);position:absolute;left:0;top:5px;width:86px;font:500 10.5px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
   table.cr .none td{padding-left:0}table.cr .none td::before{content:none}
 }
+.foot{background:rgba(244,247,250,.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:var(--ink)}
 </style>
 </head>
 <body data-base="light">
@@ -68,6 +73,7 @@ table.cr .none td{color:var(--slate);font-style:italic}
   <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
 </div>
 <div class="flash" aria-hidden="true"></div>
+<canvas class="world" id="bg" aria-hidden="true"></canvas>
 
 <header class="hdr">
   <a class="brand" href="index.html">Shreyansh Nikam</a>
@@ -82,19 +88,22 @@ table.cr .none td{color:var(--slate);font-style:italic}
 
 <main id="main">
   <section class="cr-hero" data-section="Credits">
+   <div class="sheet">
     <p class="hud" data-intro-fade>Every asset, creator and licence</p>
     <h1 class="display" data-intro>Credits<span class="dot">.</span></h1>
     <p class="lead" data-intro-fade>This site is built from my own code plus free, openly licensed work by other people. Every model, texture, sound, voice, font and library is listed below with who made it, where it came from and the licence that lets me use it.</p>
     <div class="cr-notes" data-intro-fade>
-      <div class="glass"><span class="hud">Built by</span><p>Designed and built by Shreyansh Nikam, Livingston High School, New Jersey, 2026. The projects shown were built with teammates, credited on each project page.</p></div>
-      <div class="glass"><span class="hud">About the Sky Sentry film</span><p>The Sky Sentry film is a dramatization. The airline, its livery, the flight, the radio calls and the readings are fictional. No real airline, airport crew or incident is shown.</p></div>
+      <div class="note"><span class="hud">Built by</span><p>Designed and built by Shreyansh Nikam, Livingston High School, New Jersey, 2026. The projects shown were built with teammates, credited on each project page.</p></div>
+      <div class="note"><span class="hud">About the Sky Sentry film</span><p>The Sky Sentry film is a dramatization. The airline, its livery, the flight, the radio calls and the readings are fictional. No real airline, airport crew or incident is shown.</p></div>
     </div>
+   </div>
   </section>
 
   <section class="cr-block" id="models" data-section="3D models">
+   <div class="sheet">
     <p class="label">02 · 3D models</p>
     <h2 class="display" data-split>Models and props.</h2>
-    <div class="glass tbl" data-fade>
+    <div class="tbl" data-fade>
       <table class="cr">
         <caption>3D models used on this site</caption>
         <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
@@ -107,12 +116,14 @@ table.cr .none td{color:var(--slate);font-style:italic}
         </tbody>
       </table>
     </div>
+   </div>
   </section>
 
   <section class="cr-block" id="textures" data-section="Textures and skies">
+   <div class="sheet">
     <p class="label">03 · Textures and skies</p>
     <h2 class="display" data-split>Snow, rock and light.</h2>
-    <div class="glass tbl" data-fade>
+    <div class="tbl" data-fade>
       <table class="cr">
         <caption>Textures and HDR skies used on this site</caption>
         <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
@@ -125,12 +136,14 @@ table.cr .none td{color:var(--slate);font-style:italic}
         </tbody>
       </table>
     </div>
+   </div>
   </section>
 
   <section class="cr-block" id="audio" data-section="Sound and voices">
+   <div class="sheet">
     <p class="label">04 · Sound and voices</p>
     <h2 class="display" data-split>What you hear.</h2>
-    <div class="glass tbl" data-fade>
+    <div class="tbl" data-fade>
       <table class="cr">
         <caption>Sounds and voices used on this site</caption>
         <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
@@ -143,12 +156,14 @@ table.cr .none td{color:var(--slate);font-style:italic}
       </table>
     </div>
     <p class="small">Freesound recordists credited in the Echo asset list: SamsterBirdies, SecureSubset, Nox_Sound, Anilan, Adielees9, kevinklang, EricsSoundschmiede, fonografico, mucky_pete7, paespedro, loudernoises, BaDoink, Darsycho, alegemaate, Rmutt, zepurple, Breviceps, mateozugi19, shelbyshark, plasterbrain, cabled_mess, ACPascal, kijjaz, iwanPlays, adamgryu, AlanCat, spookymodem, AMichaelWilson, qubodup and geoneo0.</p>
+   </div>
   </section>
 
   <section class="cr-block" id="fonts" data-section="Fonts">
+   <div class="sheet">
     <p class="label">05 · Fonts</p>
     <h2 class="display" data-split>Type.</h2>
-    <div class="glass tbl" data-fade>
+    <div class="tbl" data-fade>
       <table class="cr">
         <caption>Fonts used on this site, all served by Google Fonts</caption>
         <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
@@ -162,12 +177,14 @@ table.cr .none td{color:var(--slate);font-style:italic}
         </tbody>
       </table>
     </div>
+   </div>
   </section>
 
   <section class="cr-block" id="code" data-section="Code libraries">
+   <div class="sheet">
     <p class="label">06 · Code libraries</p>
     <h2 class="display" data-split>Open-source code.</h2>
-    <div class="glass tbl" data-fade>
+    <div class="tbl" data-fade>
       <table class="cr">
         <caption>JavaScript libraries bundled with this site</caption>
         <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
@@ -178,9 +195,11 @@ table.cr .none td{color:var(--slate);font-style:italic}
         </tbody>
       </table>
     </div>
+   </div>
   </section>
 
   <section class="cr-block" id="added-later" data-section="Added later">
+   <div class="sheet">
     <p class="label">07 · Added later</p>
     <h2 class="display" data-split>Added later.</h2>
     <p class="intro" data-fade>Assets added to the site after the first version (film renders, new models, new textures and new voice lines) are listed here.</p>
@@ -201,19 +220,23 @@ table.cr .none td{color:var(--slate);font-style:italic}
         </tbody>
       </table>
     </div>
+   </div>
   </section>
 
   <section class="built" data-section="Built by">
+   <div class="sheet">
     <p class="label">Built by</p>
     <h2 class="display" data-split>Made in Livingston, New Jersey.</h2>
     <p class="lead" data-fade>Designed and built by Shreyansh Nikam. Thank you to every artist, recordist, type designer and developer above for sharing their work.</p>
     <div class="btns" data-fade><a class="btn primary" href="projects.html">See my projects and achievements</a><a class="btn" href="index.html">Back to About me</a></div>
+   </div>
   </section>
 </main>
 <footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html" aria-current="page">Credits</a></footer>
 
 <script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
 <script src="js/core.js"></script>
-<script>SITE.boot(Promise.resolve());</script>
+<script src="js/vendor/three-bundle.js"></script><script src="js/credits-bg.js"></script>
+<script>SITE.boot(window.CREDITS_BG ? window.CREDITS_BG.ready : Promise.resolve());</script>
 </body>
 </html>
