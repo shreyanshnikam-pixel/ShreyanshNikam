@@ -7,16 +7,20 @@
  *
  * Manifest (assets/films/<name>/manifest.json, written by blender/encode.sh):
  *   { "fps": 24,
+ *     "baseUrl": "https://pub-xxxx.r2.dev/films/sky/",  // optional CDN base (also supported per-variant or in index.json)
  *     "desktop":  { "w": 1920, "h": 1080, "count": 240, "ext": "webp", "chunk": 48, "path": "desktop/" },
  *     "4k":       { "w": 3840, "h": 2160, "count": 1200, "ext": "avif", "chunk": 48, "path": "4k/" },
  *     "8k":       { "w": 7680, "h": 4320, "count": 1200, "ext": "avif", "chunk": 48, "path": "8k/" },
  *     "portrait": { "w": 1080, "h": 1920, "count": 240, "ext": "webp", "chunk": 48, "path": "portrait/" } }
  * Frames are <path>f_0000.<ext>, f_0001.<ext>, ... (or zero-padded to `digits` / count width when > 9999)
- * relative to the manifest. "portrait", "4k", and "8k" are optional.
+ * relative to `v.baseUrl || manifest.baseUrl || registry.baseUrl/<name>/ || manifest directory`.
+ * "portrait", "4k", and "8k" are optional.
  * The older flat form from plan.md ({fps, count, w, h, portrait:{...}}) is accepted too.
  *
- * Optional registry: assets/films/index.json = {"films":["pool","sky"]}. If it exists and does not list the film,
- * load() returns null without requesting the manifest, so pages without renders log no 404s.
+ * Optional registry: assets/films/index.json = {"films":["pool","sky"], "baseUrl":"https://pub-xxxx.r2.dev/films/"}.
+ * If it exists and does not list the film, load() returns null without requesting the manifest, so pages without
+ * renders log no 404s. If `baseUrl` is present in index.json, manifests without their own `baseUrl` resolve frames
+ * against `<baseUrl>/<name>/`.
  *
  * Usage:
  *   const film = await FilmPlayer.load(canvas, 'assets/films/pool/manifest.json');   // null if there is no film yet
@@ -32,18 +36,26 @@
   'use strict';
   const hasBitmap = typeof window.createImageBitmap === 'function';
   const padN = (i, n) => String(i).padStart(n || 4, '0');
+  const ensureSlash = (u, fallbackBase) => {
+    if (!u) return fallbackBase || '';
+    const href = new URL(u, fallbackBase || location.href).href;
+    return href.endsWith('/') ? href : href + '/';
+  };
 
-  // Normalise one variant of the manifest ({w,h,count,ext,chunk,path,digits}).
+  // Normalise one variant of the manifest ({w,h,count,ext,chunk,path,digits,baseUrl}).
   function variantOf(m, name) {
     let v = m[name];
-    if (!v && name === 'desktop') v = { w: m.w, h: m.h, count: m.count, ext: m.ext, chunk: m.chunk, path: m.path };
+    if (!v && name === 'desktop') v = { w: m.w, h: m.h, count: m.count, ext: m.ext, chunk: m.chunk, path: m.path, baseUrl: m.baseUrl };
     if (!v || !v.count) return null;
     const count = v.count | 0, start = v.start | 0;
     const autoDigits = Math.max(4, String(Math.max(0, start + count - 1)).length);
+    const rawPath = v.path != null ? String(v.path) : name + '/';
+    const path = rawPath && !rawPath.endsWith('/') ? rawPath + '/' : rawPath;
     return {
       name, w: v.w || 1920, h: v.h || 1080, count, ext: v.ext || m.ext || 'webp',
       chunk: Math.max(1, (v.chunk || m.chunk || 48) | 0),
-      path: v.path != null ? v.path : name + '/', start,
+      path, start,
+      baseUrl: typeof v.baseUrl === 'string' && v.baseUrl.trim() ? v.baseUrl.trim() : null,
       digits: Math.max(4, (v.digits || m.digits || autoDigits) | 0)
     };
   }
@@ -59,7 +71,7 @@
 
   function Player(canvas, manifest, baseUrl, opts) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
-    this.m = manifest; this.base = baseUrl; this.o = opts;
+    this.m = manifest; this.base = ensureSlash(baseUrl || location.href, location.href); this.o = opts || {};
     this.fps = Math.max(1, Number(manifest.fps) || 24);
     this.frames = new Map();     // frame index -> ImageBitmap | HTMLImageElement
     this.inflight = new Map();   // frame index -> AbortController (or Image)
@@ -95,10 +107,12 @@
       }
       this.v = v || variantOf(this.m, 'desktop') || variantOf(this.m, '4k') || variantOf(this.m, '8k') || variantOf(this.m, 'portrait');
       this.count = this.v.count;
+      const manifestBase = typeof this.m.baseUrl === 'string' && this.m.baseUrl.trim() ? this.m.baseUrl.trim() : null;
+      this.frameBase = ensureSlash(this.v.baseUrl || manifestBase || this.base, this.base);
       this.maxFrames = frameBudget(this.v, this.o);
       this.windowRadius = Math.max(4, Math.min(this.v.chunk * 2, Math.floor(this.maxFrames * 0.6)));
     },
-    url(i) { return this.base + this.v.path + 'f_' + padN(i + this.v.start, this.v.digits) + '.' + this.v.ext; },
+    url(i) { return new URL(this.v.path + 'f_' + padN(i + this.v.start, this.v.digits) + '.' + this.v.ext, this.frameBase).href; },
     chunkOf(i) { return Math.floor(i / this.v.chunk); },
     get chunks() { return Math.ceil(this.count / this.v.chunk); },
 
@@ -219,12 +233,12 @@
       };
       if (hasBitmap && window.fetch && window.AbortController) {
         const ctl = new AbortController(); this.inflight.set(i, ctl);
-        fetch(this.url(i), { signal: ctl.signal })
+        fetch(this.url(i), { signal: ctl.signal, mode: 'cors' })
           .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
           .then((b) => createImageBitmap(b))
           .then(done, (e) => { if (e && e.name === 'AbortError') return; done(null); });
       } else {
-        const im = new Image(); im.decoding = 'async'; this.inflight.set(i, im);
+        const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async'; this.inflight.set(i, im);
         im.onload = () => (im.decode ? im.decode().catch(() => {}) : Promise.resolve()).then(() => done(im));
         im.onerror = () => { if (this.inflight.get(i) === im) done(null); };
         im.src = this.url(i);
@@ -255,7 +269,7 @@
     // Debug/test info.
     state() {
       const chunks = new Set(); for (const i of this.frames.keys()) chunks.add(this.chunkOf(i));
-      return { variant: this.v.name, fps: this.fps, count: this.count, maxFrames: this.maxFrames, target: this.target,
+      return { variant: this.v.name, baseUrl: this.frameBase, fps: this.fps, count: this.count, maxFrames: this.maxFrames, target: this.target,
         drawn: this.drawn, loaded: this.frames.size, inflight: this.inflight.size,
         chunks: Array.from(chunks).sort((a, b) => a - b), failed: this.failed.size };
     },
@@ -270,23 +284,39 @@
   async function load(canvas, manifestUrl, opts) {
     opts = opts || {};
     const abs = new URL(manifestUrl, location.href), base = abs.href.replace(/[^/]*$/, '');
+    let regFilmBase = null;
     // Registry check: avoid requesting a manifest that does not exist yet (keeps the console free of 404s).
     if (opts.registry !== false) {
       const regUrl = opts.registry ? new URL(opts.registry, location.href) : new URL('../index.json', base);
       const name = base.replace(/\/$/, '').split('/').pop();
       try {
-        const r = await fetch(regUrl, { cache: 'no-cache' });
-        if (r.ok) { const reg = await r.json(); if (Array.isArray(reg.films) && reg.films.indexOf(name) < 0) return null; }
+        const r = await fetch(regUrl, { cache: 'no-cache', mode: 'cors' });
+        if (r.ok) {
+          const reg = await r.json();
+          if (Array.isArray(reg.films) && reg.films.indexOf(name) < 0) return null;
+          if (typeof reg.baseUrl === 'string' && reg.baseUrl.trim()) {
+            regFilmBase = ensureSlash(reg.baseUrl.trim(), regUrl.href) + encodeURIComponent(name) + '/';
+          }
+        }
       } catch (e) { /* no registry: fall through to the manifest */ }
     }
-    let m;
-    try {
-      const r = await fetch(abs, { cache: 'no-cache' });
-      if (!r.ok) return null;
-      m = await r.json();
-    } catch (e) { return null; }
+    let m = null, resolvedBase = base;
+    const tryManifest = async (url) => {
+      try {
+        const r = await fetch(url, { cache: 'no-cache', mode: 'cors' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    };
+    m = await tryManifest(abs);
+    if (!m && regFilmBase) {
+      m = await tryManifest(regFilmBase + 'manifest.json');
+      if (m) resolvedBase = regFilmBase;
+    }
+    if (!m) return null;
     if (!variantOf(m, 'desktop') && !variantOf(m, '4k') && !variantOf(m, '8k') && !variantOf(m, 'portrait')) return null;
-    return new Player(canvas, m, base, opts);
+    const effectiveBase = (typeof m.baseUrl === 'string' && m.baseUrl.trim()) ? ensureSlash(m.baseUrl.trim(), resolvedBase) : (regFilmBase || resolvedBase);
+    return new Player(canvas, m, effectiveBase, opts);
   }
 
   // FilmPlayer(canvas, url, opts) and FilmPlayer.load(canvas, url, opts) both return Promise<Player|null>.
