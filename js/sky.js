@@ -251,35 +251,34 @@
   const rnd = FK.rng(17);
 
   // ================= renderer, camera, post =================
-  const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping;
   R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap; R.shadowMap.autoUpdate = false;
   const S = new T.Scene(), C = new T.PerspectiveCamera(50, 1, 0.05, 120000);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
-  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.55, 0.45, 0.82); comp.addPass(bloom);
+  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.42, 0.42, 0.92); comp.addPass(bloom);
   const grade = new T.ShaderPass({
-    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uExp: { value: 1 }, uWhite: { value: 0 }, uDip: { value: 0 }, uSensor: { value: 0 }, uCA: { value: 0.0012 }, uVig: { value: 0.6 },
-      uGrain: { value: 0.035 }, uSat: { value: 1 }, uLift: { value: 0 }, uTint: { value: new T.Vector3(1, 1, 1) }, uRes: { value: new T.Vector2(1, 1) } },
+    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uExp: { value: 1 }, uWhite: { value: 0 }, uDip: { value: 0 }, uSensor: { value: 0 }, uCA: { value: 0.0005 }, uVig: { value: 0.36 },
+      uGrain: { value: 0.008 }, uSat: { value: 1 }, uLift: { value: 0 }, uTint: { value: new T.Vector3(1, 1, 1) }, uRes: { value: new T.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: [
       'uniform sampler2D tDiffuse; uniform float uT, uExp, uWhite, uDip, uSensor, uCA, uVig, uGrain, uSat, uLift; uniform vec3 uTint; uniform vec2 uRes; varying vec2 vUv;',
       'float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }',
       'vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }',
       'void main(){',
-      '  vec2 uv = vUv; uv.x += sin(uv.y*220.0 + uT*40.0) * 0.0005 * uSensor;',
-      '  vec2 c = uv - 0.5; float r2 = dot(c, c); vec2 o = c * (uCA + uSensor*0.004) * (1.0 + r2*4.0);',
+      '  vec2 uv = vUv; uv.x += sin(uv.y*220.0 + uT*40.0) * 0.0004 * uSensor;',
+      '  vec2 c = uv - 0.5; float r2 = dot(c, c); vec2 o = c * (uCA + uSensor*0.0025) * (1.0 + r2*3.0);',
       '  vec3 col = vec3(texture2D(tDiffuse, uv + o).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - o).b);',
       '  col *= uExp * uTint;',
       '  float l = dot(col, vec3(0.2126, 0.7152, 0.0722)); col = mix(vec3(l), col, uSat);',
       '  col = pow(aces(col), vec3(1.0/2.2));',
       '  col = col * (1.0 - uLift) + uLift;',
-      '  col *= mix(1.0, smoothstep(1.25, 0.15, r2*1.7), uVig);',
+      '  col *= mix(1.0, smoothstep(1.3, 0.15, r2*1.5), uVig);',
       '  if (uSensor > 0.0) {',
-      '    float ln = dot(col, vec3(0.3, 0.59, 0.11)); vec3 sc = mix(vec3(ln), col, 0.5) * vec3(0.93, 1.0, 1.05);',
-      '    vec2 px = floor(uv * uRes / 1.5); sc += (h(px + fract(uT*17.0)*91.0) - 0.5) * 0.17;',
-      '    sc += (h(vec2(floor(uv.y*uRes.y/2.0), floor(uT*30.0))) - 0.5) * 0.035;',
-      '    sc *= 0.94 + 0.06*sin(uv.y*uRes.y*1.7); sc = floor(sc*48.0)/48.0;',
+      '    float ln = dot(col, vec3(0.3, 0.59, 0.11)); vec3 sc = mix(vec3(ln), col, 0.68) * vec3(0.95, 1.0, 1.04);',
+      '    vec2 px = floor(uv * uRes / 1.5); sc += (h(px + fract(uT*17.0)*91.0) - 0.5) * 0.04;',
+      '    sc *= 0.98 + 0.02*sin(uv.y*uRes.y*1.5);',
       '    col = mix(col, sc, uSensor); }',
       '  col += (h(uv*uRes + fract(uT*13.1)*91.7) - 0.5) * uGrain;',
       '  col = mix(col, vec3(1.0), uWhite); col *= 1.0 - uDip;',
@@ -289,13 +288,13 @@
   comp.addPass(grade);
   const G = grade.uniforms;
   let DPR = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2), q = 1, W = 1, H = 1;
-  const applySize = () => { const pr = Math.max(0.5, DPR * q); R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(W / 2, H / 2); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
-  const sizeOvl = () => { const pr = Math.min(window.devicePixelRatio || 1, 2); ovl.width = Math.round(W * pr); ovl.height = Math.round(H * pr); ovl.style.width = W + 'px'; ovl.style.height = H + 'px'; };
+  const applySize = () => { const pr = Math.max(1.0, DPR * q); R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(Math.max(64, W >> 1), Math.max(64, H >> 1)); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
+  const sizeOvl = () => { const pr = Math.max(1.0, Math.min(window.devicePixelRatio || 1, 2)); ovl.width = Math.round(W * pr); ovl.height = Math.round(H * pr); ovl.style.width = W + 'px'; ovl.style.height = H + 'px'; };
   const resize = () => { W = innerWidth; H = innerHeight; C.aspect = W / H; C.updateProjectionMatrix(); applySize(); };
   window.addEventListener('resize', resize); resize();
-  // frame-time governor: lower the resolution when frames are slow
+  // frame-time governor: trims resolution only down to 1.0 DPR (never blurry sub-1x soup)
   let ema = 16, gl0 = 0, fcount = 0;
-  const govern = (now) => { if (gl0) ema = ema * 0.93 + Math.min(80, now - gl0) * 0.07; gl0 = now; if (++fcount % 45) return; let nq = q; if (ema > 26 && q > 0.55) nq = q - 0.1; else if (ema < 15 && q < 1) nq = q + 0.05; if (nq !== q) { q = nq; applySize(); } };
+  const govern = (now) => { if (gl0) ema = ema * 0.93 + Math.min(80, now - gl0) * 0.07; gl0 = now; if (++fcount % 45) return; const minQ = Math.min(1, 1 / Math.max(1, DPR)); let nq = q; if (ema > 28 && q > minQ) nq = Math.max(minQ, q - 0.1); else if (ema < 16 && q < 1) nq = Math.min(1, q + 0.05); if (nq !== q) { q = nq; applySize(); } };
 
   // ================= small helpers =================
   const cnv = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; if (draw) draw(c.getContext('2d'), w, h); return c; };
@@ -346,8 +345,8 @@
   S.add(sunL); S.add(sunL.target);
   S.fog = new T.FogExp2(0x9aa7b6, 0.00016);
 
-  // ================= clouds: stacked volumetric fbm slices with Henyey-Greenstein & Beer-Lambert scattering =================
-  const NSL = mobile ? 12 : 18;
+  // ================= clouds: streamlined volumetric slices (fast FPS, crisp overcast) =================
+  const NSL = mobile ? 6 : 10;
   const cloudU = { uT: { value: 0 }, uFogD: { value: 0.0001 }, uFogC: { value: new T.Color() }, uLit: { value: new T.Color() }, uShade: { value: new T.Color() }, uSunC: { value: new T.Color() }, uSun: { value: SUN.clone() }, uDen: { value: mobile ? 0.36 : 0.28 }, uClear: { value: 1 } };
   const cloudVS = LOGV + 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}';
   const cloudFS = LOGF + NOISE + [
@@ -386,26 +385,54 @@
   // ================= ground: snow field with forests and hedgerows =================
   const grp = { airport: new T.Group(), plane: new T.Group(), flock: new T.Group(), tower: new T.Group(), cockpit: null };
   S.add(grp.airport);
-  const gMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, normalScale: new T.Vector2(0.5, 0.5) });
+  const gMat = new T.MeshStandardMaterial({ color: 0xd4dde8, roughness: 0.94, normalScale: new T.Vector2(0.16, 0.16) });
   gMat.onBeforeCompile = (sh) => {
     sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = 'varying vec3 vWP;\n' + NOISE + '\n' + sh.fragmentShader.replace('#include <map_fragment>', [
       '#ifdef USE_MAP',
       ' vec2 q = vWP.xz;',
-      ' vec3 tc = mix(texture2D(map, q/55.0).rgb, texture2D(map, q/377.0 + 0.31).rgb, 0.45);',
+      ' vec3 tc = mix(texture2D(map, q/190.0).rgb, texture2D(map, q/680.0 + 0.31).rgb, 0.55);',
+      ' tc = mix(vec3(0.58, 0.65, 0.74), tc, 0.48);',
       ' float apt = 1.0 - smoothstep(0.0, 300.0, max(max(-1300.0 - q.x, q.x - 3700.0), max(-650.0 - q.y, q.y - 1000.0)));',
       ' float forest = smoothstep(0.55, 0.63, ff2(q*0.0009 + 11.0)) * (1.0 - apt);',
-      ' vec3 fc = vec3(0.07, 0.08, 0.08) * (0.5 + 1.0*nn2(q*0.31)) + vec3(0.5, 0.55, 0.6) * step(0.66, nn2(q*0.85)) * 0.6;',
-      ' tc = mix(tc, fc, forest * 0.9);',
-      ' vec2 fq = q / vec2(430.0, 300.0); vec2 fe = abs(fract(fq) - 0.5);',
-      ' float hedge = (1.0 - smoothstep(0.0, 0.014, min(fe.x, fe.y))) * (1.0 - apt) * step(0.42, nn2(floor(fq)*1.7)) * (1.0 - forest);',
-      ' tc = mix(tc, vec3(0.2, 0.21, 0.21), hedge * 0.55);',
-      ' tc *= 0.9 + 0.2*ff2(q*0.0004);',
-      ' diffuseColor.rgb *= tc * 1.18;',
+      ' vec3 fc = vec3(0.06, 0.08, 0.10) * (0.6 + 0.6*nn2(q*0.12)) + vec3(0.32, 0.38, 0.46) * step(0.68, nn2(q*0.25)) * 0.4;',
+      ' tc = mix(tc, fc, forest * 0.85);',
+      ' tc *= 0.86 + 0.16*ff2(q*0.0004);',
+      ' diffuseColor.rgb *= tc;',
       '#endif'].join('\n'));
   };
-  gMat.customProgramCacheKey = () => 'sky-ground';
+  gMat.customProgramCacheKey = () => 'sky-ground-v2';
   const ground = new T.Mesh(new T.PlaneGeometry(160000, 160000).rotateX(-Math.PI / 2), gMat); ground.position.set(0, 0, 0); ground.receiveShadow = true; grp.airport.add(ground);
+
+  // Distant alpine horizon mountain silhouettes framing the cold dawn airfield
+  {
+    const segs = 180, rad = 14500, baseY = -60;
+    const pos = [], idx = [];
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const cx = Math.cos(a) * rad, cz = Math.sin(a) * rad;
+      const n1 = Math.abs(Math.sin(a * 5.0 + 0.7)) * 0.55 + Math.abs(Math.sin(a * 13.0 - 1.2)) * 0.30 + Math.abs(Math.sin(a * 29.0 + 2.4)) * 0.15;
+      const peakH = 260 + Math.pow(n1, 1.35) * 980;
+      pos.push(cx, baseY, cz, cx, peakH, cz);
+    }
+    for (let i = 0; i < segs; i++) {
+      const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+      idx.push(a, c, b, b, c, d);
+    }
+    const mg = new T.BufferGeometry();
+    mg.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    mg.setIndex(idx);
+    mg.computeVertexNormals();
+    const mm = new T.ShaderMaterial({
+      uniforms: { uSun: { value: SUN.clone() } },
+      side: T.DoubleSide,
+      vertexShader: LOGV + 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}',
+      fragmentShader: LOGF + 'uniform vec3 uSun; varying vec3 vW; void main(){ vec3 d = normalize(vW - cameraPosition); float h = clamp(vW.y / 950.0, 0.0, 1.0); float sunGlow = pow(max(dot(d, uSun), 0.0), 6.0); vec3 base = mix(vec3(0.055, 0.09, 0.145), vec3(0.09, 0.14, 0.21), h); vec3 col = base + vec3(0.36, 0.22, 0.14) * sunGlow * (0.25 + 0.55 * h); gl_FragColor = vec4(col, 1.0);\n#include <logdepthbuf_fragment>\n}',
+    });
+    const mtnRing = new T.Mesh(mg, mm);
+    mtnRing.frustumCulled = false;
+    grp.airport.add(mtnRing);
+  }
 
   // ================= runway 27/09: one surface, markings + per-pixel aircraft contact shadow in shader =================
   function thresholdCanvas(num) { // 45 m wide x 450 m, the aircraft rolls toward the top of the canvas
@@ -701,9 +728,9 @@
       sh.position.copy(t0).add(t1).multiplyScalar(0.5);
       sh.rotation.y = -Math.atan2(sDir.z, sDir.x); sh.rotateX(0.24); Gt.add(sh);
     }
-    // wrap-around curved FAA perimeter slatwall console (covers wide front + side arcs)
-    const desk = new T.MeshStandardMaterial({ color: 0x1b1e24, roughness: 0.72, metalness: 0.18, envMapIntensity: 0.15 });
-    const slat = new T.MeshStandardMaterial({ color: 0x262b33, roughness: 0.65, metalness: 0.35, envMapIntensity: 0.22 });
+    // wrap-around curved FAA perimeter slatwall console (matte anodized dark charcoal — zero washed-out glare)
+    const desk = new T.MeshStandardMaterial({ color: 0x101318, roughness: 0.78, metalness: 0.14, envMapIntensity: 0.10 });
+    const slat = new T.MeshStandardMaterial({ color: 0x171b22, roughness: 0.70, metalness: 0.28, envMapIntensity: 0.16 });
     add(new T.CylinderGeometry(6.35, 6.35, 0.055, 64, 1, false, Math.PI * 0.48, Math.PI * 1.04), desk, [0, CAB + 0.78, 0]);
     add(new T.CylinderGeometry(6.4, 6.4, 0.78, 64, 1, true, Math.PI * 0.48, Math.PI * 1.04), desk, [0, CAB + 0.39, 0]);
     add(new T.CylinderGeometry(5.25, 5.25, 0.78, 64, 1, true, Math.PI * 0.48, Math.PI * 1.04), desk, [0, CAB + 0.39, 0]);
@@ -734,14 +761,14 @@
     mon('metar',    -0.44, 0.40, 0.24, 1.38, 5.90, 0.06, 520, true);
     mon('vscs',     -0.34, 0.40, 0.26, 1.01, 5.74, 0.18, 520, true);
     mon('radar',    -0.24, 0.48, 0.40, 1.09, 5.76, 0.12, 760, false);
-    mon('cam1',     -0.24, 0.42, 0.23, 1.44, 5.92, 0.05, 520, true);
+    mon('cam1',     -0.34, 0.38, 0.22, 1.32, 5.88, 0.06, 520, true);
     mon('asdex',    -0.13, 0.44, 0.34, 1.06, 5.74, 0.12, 720, false);
     mon('tfdm',     -0.04, 0.38, 0.28, 1.02, 5.70, 0.14, 680, false);
     // Center hero (Sky Sentry Live Feed + Detection Console)
     mon('sentry',    0.07, 0.68, 0.40, 1.09, 5.70, 0.10, 1000, false);
-    // Right of center (Alert Console, Perimeter Cam 03, ADS-B, IDS4, D-ATIS, Ground Map, Arrival Spacing)
+    // Right of center (Alert Console, Perimeter Cam 03 tucked outboard, ADS-B, IDS4, D-ATIS, Ground Map, Arrival Spacing)
     mon('alert',     0.19, 0.40, 0.27, 1.03, 5.72, 0.12, 640, false);
-    mon('cam3',      0.19, 0.38, 0.22, 1.34, 5.90, 0.05, 520, true);
+    mon('cam3',      0.29, 0.38, 0.22, 1.32, 5.88, 0.06, 520, true);
     mon('adsb',      0.29, 0.42, 0.28, 1.04, 5.75, 0.12, 640, false);
     mon('ids4',      0.39, 0.42, 0.28, 1.04, 5.78, 0.12, 540, true);
     mon('atis',      0.39, 0.38, 0.23, 1.35, 5.92, 0.05, 520, true);
@@ -758,17 +785,11 @@
     bc.add(new T.Mesh(new T.CylinderGeometry(0.05, 0.06, 0.05, 20), new T.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.5 })));
     const dome = new T.Mesh(new T.SphereGeometry(0.045, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshBasicMaterial({ color: 0x401010 })); dome.position.y = 0.025; bc.add(dome); towerFx.dome = dome;
     towerFx.red = new T.PointLight(0xff2a1c, 0, 5.5, 2); towerFx.red.position.set(0.55, CAB + 1.15, -4.9); Gt.add(towerFx.red);
-    towerFx.mon = new T.PointLight(0x7ca6e8, 0.28, 5.5, 2); towerFx.mon.position.set(-0.15, CAB + 1.35, -5.0); Gt.add(towerFx.mon);
-    towerFx.mon2 = new T.PointLight(0x6e98d8, 0.2, 5.0, 2); towerFx.mon2.position.set(-2.1, CAB + 1.35, -4.6); Gt.add(towerFx.mon2);
-    const ceilL = new T.PointLight(0xffe0b8, 0.16, 11, 2); ceilL.position.set(0, CAB + 3.9, -1.5); Gt.add(ceilL);
-    // 3 articulated human FAA controllers facing -Z (toward the glowing monitors & out the canted glass at Runway 27, geese & 747SP)
-    const p1 = person(0x16202e, 0x9b7056, 0x1f1610, { headYaw: -0.14, headPitch: 0.05 }); // Seated Local Control (center-left)
-    p1.position.set(-0.82, CAB, -4.72); p1.rotation.y = 0.14; Gt.add(p1);
-    const p2 = person(0x202630, 0x7a5540, 0x14100e, { headYaw: -0.12, collar: 0xb6c2d0 }); // Seated Ground Control (left wing)
-    p2.position.set(-2.55, CAB, -4.22); p2.rotation.y = 0.44; Gt.add(p2);
-    const p3 = person(0x181c22, 0xb28a70, 0x3b3027, { standing: true, bino: true, headYaw: 0.22, headPitch: 0.03, pants: 0x12151b }); // Standing Tower Supervisor looking out glass at 747SP & geese
-    p3.position.set(1.52, CAB, -4.55); p3.rotation.y = -0.26; Gt.add(p3);
-    // desk keyboards, mice, flight-strip bay, headset handsets, binoculars, mugs
+    towerFx.mon = new T.PointLight(0x7ca6e8, 0.34, 6.0, 2); towerFx.mon.position.set(-0.15, CAB + 1.35, -5.0); Gt.add(towerFx.mon);
+    towerFx.mon2 = new T.PointLight(0x6e98d8, 0.24, 5.5, 2); towerFx.mon2.position.set(-2.1, CAB + 1.35, -4.6); Gt.add(towerFx.mon2);
+    const ceilL = new T.PointLight(0xd8e6f5, 0.14, 11, 2); ceilL.position.set(0, CAB + 3.9, -1.5); Gt.add(ceilL);
+    // Clean unobstructed first-person ATC tower cab POV (zero cartoon mannequins or boxy chairs)
+    // desk keyboards, mice, flight-strip bay, binoculars, mugs
     const kbT = ctex(cnv(512, 170, (x) => { x.fillStyle = '#121316'; x.fillRect(0, 0, 512, 170); for (let r = 0; r < 5; r++) for (let k = 0; k < 15; k++) { x.fillStyle = '#2a2c31'; x.fillRect(8 + k * 33.5, 10 + r * 31, 29, 26); } }));
     const kbM = new T.MeshStandardMaterial({ map: kbT, roughness: 0.6 }), plain = new T.MeshStandardMaterial({ color: 0x17181b, roughness: 0.5, envMapIntensity: 0.2 });
     const onDesk = (ang, r, obj) => { obj.position.set(Math.sin(ang) * r, CAB + 0.81, -Math.cos(ang) * r); obj.rotation.y = -ang; Gt.add(obj); return obj; };
@@ -781,10 +802,10 @@
     const bDesk = new T.Group();
     for (const s of [-1, 1]) bDesk.add(new T.Mesh(new T.CylinderGeometry(0.025, 0.032, 0.14, 12).rotateX(Math.PI / 2), plain)).position.set(s * 0.035, 0.032, 0);
     onDesk(-0.18, 5.42, bDesk).rotation.y += 0.45;
-    // paper flight-strip bay
-    const bay = new T.Group(); bay.add(new T.Mesh(new T.BoxGeometry(0.48, 0.02, 0.32), plain));
-    for (let k = 0; k < 7; k++) { const st2 = new T.Mesh(new T.BoxGeometry(0.44, 0.012, 0.034), new T.MeshStandardMaterial({ color: [0xe9e4c8, 0xc9e2f0, 0xe9e4c8, 0xf3d3c8, 0xe9e4c8, 0xc9e2f0, 0xe9e4c8][k], roughness: 0.8 })); st2.position.set(0, 0.016, -0.13 + k * 0.043); bay.add(st2); }
-    bay.rotation.x = -0.35; onDesk(-0.13, 5.55, bay).position.y += 0.055;
+    // paper flight-strip bay (muted low-glare console strips)
+    const bay = new T.Group(); bay.add(new T.Mesh(new T.BoxGeometry(0.46, 0.02, 0.30), plain));
+    for (let k = 0; k < 7; k++) { const st2 = new T.Mesh(new T.BoxGeometry(0.42, 0.010, 0.032), new T.MeshStandardMaterial({ color: [0x3d444d, 0x2d4354, 0x3d444d, 0x4f3535, 0x3d444d, 0x2d4354, 0x3d444d][k], roughness: 0.9 })); st2.position.set(0, 0.015, -0.12 + k * 0.040); bay.add(st2); }
+    bay.rotation.x = -0.35; onDesk(-0.13, 5.55, bay).position.y += 0.052;
   }
   const towerFx = {};
   const feedRT = new T.WebGLRenderTarget(mobile ? 384 : 512, mobile ? 216 : 288, { type: T.HalfFloatType });
@@ -928,7 +949,7 @@
   function buildCockpit() {
     const Gc = new T.Group(); Gc.position.set(24.0, 5.5, 0); body.add(Gc); grp.cockpit = Gc;
     const M = (c, r, m, e) => new T.MeshStandardMaterial({ color: c, roughness: r == null ? 0.7 : r, metalness: m || 0, envMapIntensity: e == null ? 0.35 : e });
-    const shell = M(0x2b2f35, 0.75), shellL = M(0x3a3f46, 0.7), fabric = M(0x1b1d20, 0.95, 0, 0.15), metal = M(0x8c9298, 0.35, 0.8, 0.6);
+    const shell = M(0x16191f, 0.78), shellL = M(0x21262e, 0.72), fabric = M(0x111317, 0.95, 0, 0.12), metal = M(0x7c848d, 0.35, 0.8, 0.55);
     const add = (geo, m, p, r, par) => { const o = new T.Mesh(geo, m); o.position.set(p[0], p[1], p[2]); if (r) o.rotation.set(r[0], r[1], r[2]); (par || Gc).add(o); return o; };
     const bar = (a, b, t, m) => { const d = b.clone().sub(a), o = new T.Mesh(new T.BoxGeometry(t, d.length(), t), m); o.position.copy(a).add(b).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); Gc.add(o); return o; };
     const limb = (a, b, r0, r1, m) => { const d = b.clone().sub(a), o = new T.Mesh(new T.CylinderGeometry(r1, r0, d.length(), 14), m); o.position.copy(a).add(b).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); Gc.add(o); return o; };
@@ -973,47 +994,12 @@
       for (const s of [-1, 1]) { const c = new T.CatmullRomCurve3([V(0.43, -0.56, z), V(0.43, -0.58, z + s * 0.12), V(0.43, -0.5, z + s * 0.18), V(0.42, -0.41, z + s * 0.17)]); add(new T.TubeGeometry(c, 16, 0.017, 8), yokeM, [0, 0, 0]); }
       add(new T.BoxGeometry(0.01, 0.09, 0.13), M(0xd9dcdf, 0.7), [0.42, -0.52, z]);
     }
-    // seats seen from behind
-    const seatM = M(0x2a2622, 0.85, 0, 0.2);
-    for (const z of [-0.53, 0.53]) { const sb = add(new T.RoundedBoxGeometry(0.16, 0.78, 0.56, 4, 0.05), seatM, [-0.32, -0.55, z]); sb.rotation.z = 0.12; add(new T.RoundedBoxGeometry(0.5, 0.12, 0.56, 4, 0.04), seatM, [-0.06, -0.86, z]); }
-    // the two pilots: heads with headsets, uniform shoulders and arms, gloved hands on the controls
-    const navy = M(0x161e2c, 0.85, 0, 0.25), shirt = M(0xe8ecef, 0.8), gold = M(0xc9a24a, 0.35, 0.8, 0.8), glove = M(0x0e0f11, 0.42, 0, 0.6), skin = (c) => M(c, 0.6), hairM = (c) => M(c, 0.95, 0, 0.2), blk = M(0x15161a, 0.45);
-    const pilot = (z, sg, hairC, skinC) => {
-      const g = new T.Group(); Gc.add(g);
-      const head = add(new T.SphereGeometry(0.1, 28, 20), skin(skinC), [-0.06, 0.03, z], null, g); head.scale.set(1.05, 1.15, 0.92);
-      const hair = add(new T.SphereGeometry(0.104, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.6), hairM(hairC), [-0.075, 0.045, z], [0, 0, 0.5], g); hair.scale.set(1.05, 1.12, 0.95);
-      add(new T.CylinderGeometry(0.05, 0.055, 0.12, 16), skin(skinC), [-0.08, -0.1, z], null, g);
-      const band = add(new T.TorusGeometry(0.113, 0.012, 6, 28, Math.PI), blk, [-0.07, 0.035, z], null, g); band.rotation.set(0, Math.PI / 2, 0);
-      for (const s of [-1, 1]) add(new T.CylinderGeometry(0.045, 0.045, 0.035, 18), blk, [-0.07, 0.03, z + s * 0.105], [Math.PI / 2, 0, 0], g);
-      add(new T.CylinderGeometry(0.004, 0.004, 0.14, 6), blk, [0.0, -0.01, z + sg * 0.09], [0, 0, 1.3], g);
-      // torso and shoulders with epaulettes
-      const tor = add(new T.CapsuleGeometry(0.17, 0.3, 6, 14), shirt, [-0.14, -0.42, z], null, g); tor.scale.set(0.75, 1, 1.25);
-      for (const s of [-1, 1]) { add(new T.SphereGeometry(0.075, 16, 12), shirt, [-0.13, -0.24, z + s * 0.19], null, g); const ep = add(new T.BoxGeometry(0.1, 0.012, 0.055), blk, [-0.13, -0.17, z + s * 0.19], null, g); for (let k = 0; k < (sg < 0 ? 4 : 3); k++) add(new T.BoxGeometry(0.008, 0.014, 0.05), gold, [-0.105 + k * 0.016, -0.165, z + s * 0.19], null, g); }
-      return g;
-    };
-    pilot(-0.53, -1, 0x6e6a66, 0xc49a7c); pilot(0.53, 1, 0x241a12, 0x8a5e44);
-    const gloveAt = (pos, dir, curl) => { // palm + four curled fingers + thumb, oriented along dir
-      const g = new T.Group(); g.position.copy(pos); Gc.add(g); g.quaternion.setFromUnitVectors(V(0, 0, 1), dir.clone().normalize());
-      const palm = new T.Mesh(new T.RoundedBoxGeometry(0.085, 0.032, 0.095, 3, 0.012), glove); g.add(palm);
-      for (let k = 0; k < 4; k++) { const f = new T.Mesh(new T.CapsuleGeometry(0.0095, 0.05, 4, 8), glove); f.position.set(-0.03 + k * 0.02, -0.01 - curl * 0.02, 0.07); f.rotation.x = Math.PI / 2 + curl; g.add(f); }
-      const th = new T.Mesh(new T.CapsuleGeometry(0.011, 0.045, 4, 8), glove); th.position.set(0.05, -0.012, 0.035); th.rotation.set(Math.PI / 2, 0, -0.7); g.add(th);
-      const cuff = new T.Mesh(new T.CylinderGeometry(0.036, 0.034, 0.05, 14).rotateX(Math.PI / 2), glove); cuff.position.z = -0.065; g.add(cuff);
-      return g;
-    };
-    const arm = (sh, el, wr, hand, dir, curl, cuffStripes) => {
-      limb(sh, el, 0.05, 0.045, shirt); limb(el, wr, 0.045, 0.036, shirt);
-      gloveAt(hand, dir, curl);
-      for (let k = 0; k < cuffStripes; k++) { const d = wr.clone().sub(el).normalize(); const r = new T.Mesh(new T.TorusGeometry(0.038, 0.004, 6, 20), gold); r.position.copy(wr).addScaledVector(d, -0.03 - k * 0.012); r.quaternion.setFromUnitVectors(V(0, 0, 1), d); Gc.add(r); }
-    };
-    // captain: left hand on the yoke's left horn, right hand on the thrust levers
-    arm(V(-0.13, -0.25, -0.72), V(0.1, -0.52, -0.86), V(0.35, -0.47, -0.72), V(0.4, -0.45, -0.71), V(1, 0.35, 0.1), 0.9, 4);
-    arm(V(-0.13, -0.25, -0.34), V(0.03, -0.6, -0.2), V(0.18, -0.55, -0.05), V(0.23, -0.53, -0.01), V(1, 0.1, 0.25), 1.1, 4);
-    // first officer: right hand on his yoke, left hand on the pedestal edge
-    arm(V(-0.13, -0.25, 0.72), V(0.1, -0.52, 0.86), V(0.35, -0.47, 0.72), V(0.4, -0.45, 0.71), V(1, 0.35, -0.1), 0.9, 3);
-    arm(V(-0.13, -0.25, 0.34), V(0.0, -0.62, 0.26), V(0.12, -0.66, 0.23), V(0.17, -0.65, 0.22), V(1, -0.2, -0.1), 0.6, 3);
-    // instrument glow and a warm flood light
+    // seats seen from behind (clean unobstructed architectural flight deck — zero cartoon pilot figures)
+    const seatM = M(0x22252b, 0.82, 0.04, 0.2);
+    for (const z of [-0.53, 0.53]) { const sb = add(new T.RoundedBoxGeometry(0.14, 0.62, 0.50, 4, 0.04), seatM, [-0.34, -0.66, z]); sb.rotation.z = 0.12; add(new T.RoundedBoxGeometry(0.46, 0.10, 0.50, 4, 0.04), seatM, [-0.08, -0.88, z]); }
+    // instrument glow and a soft cockpit flood light
     ck.glowL = new T.PointLight(0x8fb4ff, 0.7, 2.6, 2); ck.glowL.position.set(0.5, -0.45, 0); Gc.add(ck.glowL);
-    ck.flood = new T.PointLight(0xffd9b0, 0.25, 3, 2); ck.flood.position.set(-0.2, 0.45, 0); Gc.add(ck.flood);
+    ck.flood = new T.PointLight(0xffd9b0, 0.22, 3, 2); ck.flood.position.set(-0.2, 0.45, 0); Gc.add(ck.flood);
     ck.rig = new T.Object3D(); Gc.add(ck.rig);
     return Gc;
   }
@@ -1398,15 +1384,15 @@
     if (p < 0.53) { const k = sh(0.50, 0.53), a = lerp(0.9, 1.5, k), d = drone.position; return { mode: 'ext', pos: V(d.x + Math.cos(a) * 4.2, d.y + 0.6, d.z + Math.sin(a) * 4.2), look: V(d.x, d.y, d.z), fov: port ? 50 : 34 }; }
     if (p < 0.545) { const k = sh(0.53, 0.545); return { mode: 'ext', pos: V(SENT.x + 1.3 - k * 0.5, 1.6, SENT.z + 0.35), look: V(SENT.x - 3, 1.5 + k * 0.2, SENT.z), fov: port ? 56 : 40 }; }
     if (p < 0.64) { sentAim(p); return { mode: 'sentry', pos: sentCam.position.clone(), quat: sentCam.quaternion.clone(), fov: sentCam.fov * (port ? 1.6 : 1) }; }
-    // Shot 7: Real-life FAA ATC tower cab — wide establishing view framing all 19 glowing monitors + 3 human controllers
-    // looking directly through the outward-canted panoramic glass at Runway 27, the banking Canada geese, AND the approaching 747SP!
+    // Shot 7: Moody, razor-sharp architectural first-person ATC tower cab POV — dark anodized-steel canted mullions,
+    // glowing tactical console & Sky Sentry alert monitor framing Runway 27, dawn alpine ridge, geese flock & approaching 747SP
     if (p < 0.80) {
       const k1 = ss(0.64, 0.71, p), k2 = ss(0.71, 0.755, p), k3 = ss(0.76, 0.80, p);
-      let pos = towerLocal(lerp(0.45, 0.15, k1), CAB + lerp(1.98, 1.82, k1), lerp(-1.10, -2.05, k1));
-      let look = towerLocal(lerp(-0.18, -0.10, k1), CAB + lerp(1.60, 1.58, k1), -9.5);
-      if (k2 > 0) { pos.lerp(towerLocal(0.28, CAB + 1.66, -3.15), k2); look.lerp(towerLocal(-0.05, CAB + 1.52, -9.5), k2); }
-      if (k3 > 0) { pos.lerp(towerLocal(0.38, CAB + 1.82, -2.75), k3); look.lerp(V(lerp(pp.x, fl.x, 0.25), lerp(pp.y, fl.y, 0.25), lerp(pp.z, fl.z, 0.25)), k3); }
-      return { mode: 'tower', pos, look, fov: port ? lerp(72, 60, k2) : lerp(58, 48, k2) };
+      let pos = towerLocal(lerp(0.18, 0.04, k1), CAB + lerp(1.66, 1.56, k1), lerp(-2.35, -2.95, k1));
+      let look = towerLocal(lerp(-0.12, -0.04, k1), CAB + lerp(1.42, 1.38, k1), -10.5);
+      if (k2 > 0) { pos.lerp(towerLocal(0.10, CAB + 1.50, -3.55), k2); look.lerp(towerLocal(0.02, CAB + 1.34, -10.5), k2); }
+      if (k3 > 0) { pos.lerp(towerLocal(0.16, CAB + 1.62, -3.20), k3); look.lerp(V(lerp(pp.x, fl.x, 0.28), lerp(pp.y, fl.y, 0.28), lerp(pp.z, fl.z, 0.28)), k3); }
+      return { mode: 'tower', pos, look, fov: port ? lerp(66, 56, k2) : lerp(54, 46, k2) };
     }
     // Shot 8: go-around — low beside the flock as the 747SP pitches up and climbs overhead
     const k = sh(0.80, 0.88); const cam = V(-240, 28, -88);
@@ -1446,14 +1432,14 @@
     }
     // drone
     { const s = proj(drone.position, cam); if (s.ok && p > 0.575) { const b = 16; ox.strokeStyle = '#fff'; ox.lineWidth = 1.6; ox.strokeRect(s.x - b, s.y - b * 0.7, b * 2, b * 1.4); ox.fillStyle = '#fff'; ox.fillRect(s.x - b, s.y - b * 0.7 - 15, 76, 14); ox.fillStyle = '#0F1B26'; ox.fillText('DRONE D-01', s.x - b + 4, s.y - b * 0.7 - 4); } }
-    // HUD frame
-    ox.fillStyle = 'rgba(234,242,248,.92)'; ox.font = '600 12px "Geist Mono", monospace';
-    const top = mobile ? 76 : 92, L0 = mobile ? 16 : 32;
-    ox.fillText('SKY SENTRY · CAM 02 · RWY 27 FINAL', L0, top + 34); ox.font = '500 11px "Geist Mono", monospace';
-    ox.fillStyle = Math.sin(t * 6) > 0 ? '#ff3b30' : 'rgba(255,59,48,.3)'; ox.beginPath(); ox.arc(L0 + 5, top + 52, 4, 0, 7); ox.fill(); ox.fillStyle = 'rgba(234,242,248,.8)';
-    ox.fillText('LIVE  06:41:' + String(8 + Math.floor(k * 10)).padStart(2, '0') + '  ·  ' + shown + ' BIRDS  ·  1 DRONE', L0 + 16, top + 56);
+    // HUD frame (cleanly positioned below the top chapter pill so nothing ever collides)
+    ox.fillStyle = 'rgba(234,242,248,.94)'; ox.font = '600 12px "Geist Mono", monospace';
+    const top = mobile ? 96 : 114, L0 = mobile ? 16 : 32;
+    ox.fillText('SKY SENTRY · CAM 02 · RWY 27 FINAL', L0, top + 24); ox.font = '500 11px "Geist Mono", monospace';
+    ox.fillStyle = Math.sin(t * 6) > 0 ? '#ff3b30' : 'rgba(255,59,48,.3)'; ox.beginPath(); ox.arc(L0 + 5, top + 42, 4, 0, 7); ox.fill(); ox.fillStyle = 'rgba(234,242,248,.86)';
+    ox.fillText('LIVE  06:41:' + String(8 + Math.floor(k * 10)).padStart(2, '0') + '  ·  ' + shown + ' BIRDS  ·  1 DRONE', L0 + 16, top + 46);
     // risk meter
-    const mw = Math.min(280, W - L0 * 2 - 24), mx = mobile ? L0 + 12 : W - mw - 40, my = mobile ? top + 82 : top + 26;
+    const mw = Math.min(280, W - L0 * 2 - 24), mx = mobile ? L0 + 12 : W - mw - 40, my = mobile ? top + 72 : 98;
     ox.fillStyle = 'rgba(8,13,19,.6)'; ox.fillRect(mx - 12, my - 10, mw + 24, 70);
     ox.fillStyle = 'rgba(234,242,248,.8)'; ox.fillText('RUNWAY RISK', mx, my + 6);
     const lvl = risk > 0.66 ? 'HIGH' : risk > 0.36 ? 'ELEVATED' : 'LOW', lc = risk > 0.66 ? '#ff3b30' : risk > 0.36 ? '#ffc23d' : '#3ddc84';
@@ -1509,7 +1495,7 @@
     if (ck2 !== capKey) { capKey = ck2; D.cap.classList.remove('on'); if (cp) { D.capT.textContent = cp[2]; D.capL.textContent = cp[3]; D.cap.className = 'cap ' + (cp[4] || ''); void D.cap.offsetWidth; D.cap.classList.add('on'); } }
     const ln = LINES.find((l) => p >= l[0] && p < l[1]), lk = ln ? ln[0] : -1;
     if (lk !== subKey) { subKey = lk; D.subs.classList.toggle('on', !!ln); if (ln) { D.who.textContent = ln[2]; D.line.textContent = ln[3]; D.who.className = 'who' + (ln[5] === 'alert' ? ' alert' : ''); if (S0.soundOn && p > lastP && p - ln[0] < 0.02) playVoice(ln, sh.mode); } }
-    const tOn = sh.mode === 'ext' && p > 0.3 && p < 0.53 || sh.mode === 'cockpit' && p > 0.24 && p < 0.3;
+    const tOn = (sh.mode === 'ext' && p > 0.3 && p < 0.525) || (sh.mode === 'cockpit' && p > 0.24 && p < 0.3);
     if (tOn !== teleOn) { teleOn = tOn; D.tele.classList.toggle('on', tOn); }
     if (tOn) { D.ta.textContent = 'SKY902 · B747 · RWY 27'; D.tb.textContent = `ALT ${Math.round(st.ft / 10) * 10} FT · ${Math.round(st.kt)} KT`; D.tc.textContent = `G/S 3.0° · ${st.nm.toFixed(1)} NM`; }
     const rk = p > 0.69 && p < 0.80; D.rep.classList.toggle('on', rk);
@@ -1599,12 +1585,32 @@
       x.fillStyle = alert ? '#ff4d42' : '#3ddc84'; x.fillText(alert ? 'WILDLIFE ALERT' : 'CAT I · OPEN', w * 0.48, h * 0.62);
       mono(x, 11, 600); x.fillStyle = '#9bb0c4'; x.fillText('LOCAL 118.30 · GND 121.90 · GUARD 121.50', 18, 22);
       tex.needsUpdate = true; }
+    // ASDE-X Surface Movement Radar (static airport geometry + alert marker)
+    { const { c, x, t: tex } = sc.asdex, w = c.width, h = c.height; x.fillStyle = '#060a08'; x.fillRect(0, 0, w, h);
+      const sx = (X) => 20 + (X + 1400) / 4500 * (w - 40), sz = (Z) => h * 0.48 + Z / 1200 * h;
+      x.fillStyle = '#2d3740'; x.fillRect(sx(0), sz(-28), sx(3000) - sx(0), 10); x.fillRect(sx(0), sz(160), sx(3000) - sx(0), 6);
+      mono(x, 11, 700); x.fillStyle = '#7dffa0'; x.fillText('ASDE-X SURFACE · RWY 27', 10, 18);
+      x.fillStyle = '#7dffa0'; x.beginPath(); x.arc(sx(-520), sz(0), 5, 0, 7); x.fill(); x.fillText('SKY902', sx(-520) + 8, sz(0) - 8);
+      if (alert > 0) { x.fillStyle = '#ff4632'; x.beginPath(); x.arc(sx(-340), sz(20), 8, 0, 7); x.fill(); x.fillStyle = '#ff6a5a'; x.fillText('FLOCK', sx(-340) + 10, sz(20) + 4); }
+      tex.needsUpdate = true; }
+    // TFDM Electronic Flight Progress Strips
+    { const { c, x, t: tex } = sc.tfdm, w = c.width, h = c.height; x.fillStyle = '#0d1117'; x.fillRect(0, 0, w, h);
+      const rows = [['SKY902', 'B74S/H', 'RWY 27', alert ? 'GO AROUND' : 'CLRD LAND'], ['DAL118', 'A321/M', 'TWY B', 'HOLD'], ['N512RT', 'C172/L', 'RWY 27', 'PATTERN'], ['UAL77', 'B789/H', 'GATE 14', 'PUSH']];
+      rows.forEach((r, i) => { const y = 10 + i * (h - 14) / 4, hh = (h - 14) / 4 - 6; x.fillStyle = i === 0 ? (alert ? '#5a1410' : '#1d2a1e') : '#161b22'; x.fillRect(8, y, w - 16, hh); x.fillStyle = i === 0 ? '#ffffff' : '#a9b4c2'; mono(x, 14, 600); x.fillText(r[0], 14, y + hh * 0.62); mono(x, 11); x.fillText(r[1], w * 0.36, y + hh * 0.62); x.fillText(r[2], w * 0.58, y + hh * 0.62); x.fillStyle = i === 0 ? (alert ? '#ff6a5a' : '#7dffa0') : '#7f8a99'; x.fillText(r[3], w * 0.74, y + hh * 0.62); });
+      tex.needsUpdate = true; }
+    // ADS-B Flight List
+    { const { c, x, t: tex } = sc.adsb, w = c.width, h = c.height; x.fillStyle = '#05080d'; x.fillRect(0, 0, w, h); mono(x, 11, 600); x.fillStyle = '#6f8bab'; x.fillText('ADS-B  CALLSIGN  ALT   GS  HDG', 10, 20);
+      const Lr = [['SKY902', '0280', '140', '270'], ['N512RT', '1400', '092', '180'], ['UAL77', '000', '000', '090'], ['AAL2201', '6800', '231', '045'], ['DAL118', '000', '012', '360']];
+      Lr.forEach((r, i) => { x.fillStyle = i === 0 ? '#eaf2ff' : '#9fb3c8'; x.fillText(`${String(i + 1).padStart(2, '0')}    ${r[0].padEnd(8)}${r[1].padStart(5)} ${r[2]} ${r[3]}`, 10, 42 + i * 20); }); tex.needsUpdate = true; }
+    // Sky Sentry Alert Panel
+    { const { c, x, t: tex } = sc.alert, w = c.width, h = c.height; x.fillStyle = alert ? '#7a1410' : '#0a0d12'; x.fillRect(0, 0, w, h);
+      mono(x, 13, 600); x.fillStyle = '#fff'; x.fillText('SKY SENTRY ALERT', 12, 26); mono(x, 28, 700); x.fillStyle = alert ? '#fff' : '#3ddc84'; x.fillText(alert ? 'RISK HIGH' : 'RISK LOW', 12, h * 0.58); mono(x, 12); x.fillStyle = 'rgba(255,255,255,.8)'; x.fillText(alert ? 'BIRDS ON FINAL · RWY 27' : 'MONITORING', 12, h * 0.84); tex.needsUpdate = true; }
   }
   function drawScreens(t, st) {
     const sc = screens; if (!sc.radar) return;
     if (staticScreensAlert !== st.alert) { staticScreensAlert = st.alert; drawStaticScreens(st.alert); }
     if (!vmap) { const r = FK.rng(3); vmap = []; for (let k = 0; k < 9; k++) { const pts = []; let x = r() * 2 - 1, y = r() * 2 - 1; for (let i = 0; i < 7; i++) { pts.push([x, y]); x += (r() - 0.5) * 0.5; y += (r() - 0.5) * 0.5; } vmap.push(pts); } }
-    // STARS Primary Local Control Radar
+    // Live screen 1 of 2: STARS Primary Local Control Radar
     { const { c, x, t: tex } = sc.radar, w = c.width, h = c.height, cx = w / 2, cy = h / 2, R0 = Math.min(w, h) * 0.48;
       x.fillStyle = '#020407'; x.fillRect(0, 0, w, h);
       x.strokeStyle = 'rgba(90,120,150,.38)'; x.lineWidth = 1; vmap.forEach((pl) => { x.beginPath(); pl.forEach(([px, py], i) => { const X = cx + px * R0 * 1.25, Y = cy + py * R0 * 1.25; i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.stroke(); });
@@ -1617,27 +1623,7 @@
       if (st.alert > 0) { const on = Math.sin(t * 12) > -0.2; x.strokeStyle = on ? '#ff3b30' : 'rgba(255,59,48,.3)'; x.lineWidth = 2; x.strokeRect(cx - R0 * 0.24 - 18, cy - 14, 36, 24); x.fillStyle = on ? '#ff3b30' : 'rgba(255,59,48,.4)'; x.fillText('BIRDS', cx - R0 * 0.24 - 16, cy - 20); }
       x.fillStyle = '#7f8b99'; x.font = '500 10px ui-monospace, Menlo, monospace'; x.fillText('STARS · KSKY 1141Z · RWY 27', 8, h - 8); tex.needsUpdate = true;
     }
-    // ASDE-X Surface Movement Radar
-    { const { c, x, t: tex } = sc.asdex, w = c.width, h = c.height; x.fillStyle = '#060a08'; x.fillRect(0, 0, w, h);
-      const sx = (X) => 20 + (X + 1400) / 4500 * (w - 40), sz = (Z) => h * 0.48 + Z / 1200 * h;
-      x.fillStyle = '#2d3740'; x.fillRect(sx(0), sz(-28), sx(3000) - sx(0), 10); x.fillRect(sx(0), sz(160), sx(3000) - sx(0), 6);
-      mono(x, 11, 700); x.fillStyle = '#7dffa0'; x.fillText('ASDE-X SURFACE · RWY 27', 10, 18);
-      x.fillStyle = '#7dffa0'; x.beginPath(); x.arc(sx(PL.position.x), sz(0), 5, 0, 7); x.fill(); x.fillText('SKY902', sx(PL.position.x) + 8, sz(0) - 8);
-      if (st.alert > 0) { x.fillStyle = `rgba(255,70,50,${0.6 + 0.4 * Math.sin(t * 12)})`; x.beginPath(); x.arc(sx(st.flock.x), sz(st.flock.z), 9, 0, 7); x.fill(); x.fillStyle = '#ff6a5a'; x.fillText('FLOCK', sx(st.flock.x) + 10, sz(st.flock.z) + 4); }
-      tex.needsUpdate = true; }
-    // TFDM Electronic Flight Progress Strips
-    { const { c, x, t: tex } = sc.tfdm, w = c.width, h = c.height; x.fillStyle = '#0d1117'; x.fillRect(0, 0, w, h);
-      const rows = [['SKY902', 'B74S/H', 'RWY 27', st.ga ? 'GO AROUND' : 'CLRD LAND'], ['DAL118', 'A321/M', 'TWY B', 'HOLD'], ['N512RT', 'C172/L', 'RWY 27', 'PATTERN'], ['UAL77', 'B789/H', 'GATE 14', 'PUSH']];
-      rows.forEach((r, i) => { const y = 10 + i * (h - 14) / 4, hh = (h - 14) / 4 - 6; x.fillStyle = i === 0 ? (st.alert > 0 ? '#5a1410' : '#1d2a1e') : '#161b22'; x.fillRect(8, y, w - 16, hh); x.fillStyle = i === 0 ? '#ffffff' : '#a9b4c2'; mono(x, 14, 600); x.fillText(r[0], 14, y + hh * 0.62); mono(x, 11); x.fillText(r[1], w * 0.36, y + hh * 0.62); x.fillText(r[2], w * 0.58, y + hh * 0.62); x.fillStyle = i === 0 ? (st.alert > 0 ? '#ff6a5a' : '#7dffa0') : '#7f8a99'; x.fillText(r[3], w * 0.74, y + hh * 0.62); });
-      tex.needsUpdate = true; }
-    // ADS-B Flight List
-    { const { c, x, t: tex } = sc.adsb, w = c.width, h = c.height; x.fillStyle = '#05080d'; x.fillRect(0, 0, w, h); mono(x, 11, 600); x.fillStyle = '#6f8bab'; x.fillText('ADS-B  CALLSIGN  ALT   GS  HDG', 10, 20);
-      const Lr = [['SKY902', String(Math.round(st.ft)), String(Math.round(st.kt)), '270'], ['N512RT', '1400', '092', '180'], ['UAL77', '000', '000', '090'], ['AAL2201', '6800', '231', '045'], ['DAL118', '000', '012', '360']];
-      Lr.forEach((r, i) => { x.fillStyle = i === 0 ? '#eaf2ff' : '#9fb3c8'; x.fillText(`${String(i + 1).padStart(2, '0')}    ${r[0].padEnd(8)}${r[1].padStart(5)} ${r[2]} ${r[3]}`, 10, 42 + i * 20); }); tex.needsUpdate = true; }
-    // Sky Sentry Alert Panel
-    { const { c, x, t: tex } = sc.alert, w = c.width, h = c.height, A = st.alert, on = A > 0 && Math.sin(t * 11) > -0.3; x.fillStyle = A > 0 ? (on ? '#7a1410' : '#2a0806') : '#0a0d12'; x.fillRect(0, 0, w, h);
-      mono(x, 13, 600); x.fillStyle = '#fff'; x.fillText('SKY SENTRY ALERT', 12, 26); mono(x, 28, 700); x.fillStyle = A > 0 ? '#fff' : '#3ddc84'; x.fillText(A > 0 ? 'RISK HIGH' : 'RISK LOW', 12, h * 0.58); mono(x, 12); x.fillStyle = 'rgba(255,255,255,.8)'; x.fillText(A > 0 ? 'BIRDS ON FINAL · RWY 27' : 'MONITORING', 12, h * 0.84); tex.needsUpdate = true; }
-    // Sky Sentry Centre Hero Widescreen
+    // Live screen 2 of 2: Sky Sentry Centre Hero Widescreen
     { const { c, x, t: tex } = sc.sentry, w = c.width, h = c.height, A = st.alert;
       x.fillStyle = '#06080c'; x.fillRect(0, 0, w, h); const fx = w * 0.045, fy = h * 0.14, fw = w * 0.635, fh = fw * 9 / 16; x.clearRect(fx, fy, fw, fh);
       const red = A > 0 && Math.sin(t * 11) > -0.3; x.strokeStyle = A > 0 ? (red ? '#ff3b30' : '#7a1d18') : '#2d3a4f'; x.lineWidth = A > 0 ? 8 : 3; x.strokeRect(4, 4, w - 8, h - 8);
@@ -1657,7 +1643,7 @@
   const backdropQ = () => { const a = after[0], b = after[after.length - 1]; if (!a) return 0; const top = a.getBoundingClientRect().top + scrollY, bot = b.getBoundingClientRect().bottom + scrollY; return clamp((scrollY + innerHeight * 0.5 - top) / Math.max(1, bot - top), 0, 1); };
 
   // ================= loop =================
-  let forced = null, ps = 0, lastP = 0, lt = 0, last = 0, visible = true, frameN = 0, mode = null, useFrames = false, framePl = null;
+  let forced = null, lastForced = null, ps = 0, lastP = 0, lt = 0, last = 0, visible = true, frameN = 0, mode = null, useFrames = false, framePl = null, lastMonT = -1e9;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
   const filmP = () => { const r = film.getBoundingClientRect(); return clamp(-r.top / Math.max(1, r.height - innerHeight), 0, 1); };
   let inCloud = 0;
@@ -1671,12 +1657,11 @@
     const dt = clamp((now - (last || now)) / 1000, 0.0005, 0.05); last = now; lt += dt; const t = lt;
     const rf = film.getBoundingClientRect(), filmOn = rf.bottom > innerHeight * 0.02;
     const p0 = forced != null ? forced : filmP();
-    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 6)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
+    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 9.5)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
     const p = clamp(ps, 0, 1);
     govern(now);
     const back = forced == null && !filmOn;
     frameN++;
-    // backdrop: lighter frame cadence when scroll is past the film
     if (back && (frameN % 2)) return;
     lpT.value = t; flockU.uT.value = t; cloudU.uT.value = t; snowU.uT.value = t; G.uT.value = t;
     const st = planeAt(p, t);
@@ -1689,7 +1674,7 @@
     dr.leds.forEach((l, i) => { l.visible = Math.sin(t * 6 + i) > -0.2; }); dr.strobe.visible = (t * 1.2) % 1 < 0.06;
     PL.updateMatrixWorld(true);
     let sh;
-    if (back) { // above the clouds at sunrise, drifting with scroll
+    if (back) {
       const k = backdropQ();
       sh = { mode: 'back', pos: V(-30000 + k * 9000 + Math.sin(t * 0.05) * 60, 2350 - k * 500 + Math.sin(t * 0.13) * 8, -1500 + Math.sin(k * 3) * 800), fov: W / H < 0.9 ? 70 : 48 };
       sh.look = sh.pos.clone().add(V(1000, -110 - k * 80, -380 + Math.sin(t * 0.04) * 60));
@@ -1697,82 +1682,82 @@
     const modeChanged = sh.mode !== mode;
     if (modeChanged) { mode = sh.mode; }
     setLook(sh);
-    mouse.lerp(mt, 1 - Math.exp(-dt * 2)); if (sh.mode !== 'sentry') { C.rotateY(-mouse.x * 0.02); C.rotateX(-mouse.y * 0.014); }
+    mouse.lerp(mt, 1 - Math.exp(-dt * 2)); if (sh.mode !== 'sentry') { C.rotateY(-mouse.x * 0.016); C.rotateX(-mouse.y * 0.011); }
     if (sh.shake) { const k = sh.shake; C.rotateX((Math.random() - 0.5) * 0.012 * k); C.rotateY((Math.random() - 0.5) * 0.012 * k); C.position.y += (Math.random() - 0.5) * 0.25 * k; }
     C.fov = sh.fov; C.near = sh.mode === 'cockpit' ? 0.04 : sh.mode === 'tower' ? 0.1 : 0.4; C.updateProjectionMatrix(); C.updateMatrixWorld(true);
-    // visibility per shot
     const cockpit = sh.mode === 'cockpit', inTower = sh.mode === 'tower';
     if (plane.mesh) plane.mesh.visible = !cockpit; grp.cockpit.visible = cockpit;
     Object.values(plane.sprites).forEach((s) => { s.visible = !cockpit; });
     plane.cones.forEach((c) => { c.visible = !cockpit && !back; });
     plane.plumes.forEach((c) => { c.visible = !cockpit && !back; });
-    // keep sun shadow frustum centered on the active hero subject; refresh shadow map on hero shots only
     const shCenter = inTower ? TWR : PL.position;
     sunL.target.position.copy(shCenter); sunL.target.updateMatrixWorld();
     sunL.position.copy(shCenter).addScaledVector(SUN, 900);
-    if (!back && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 2 === 0)) R.shadowMap.needsUpdate = true;
+    if (!back && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 6 === 0)) R.shadowMap.needsUpdate = true;
     grp.airport.visible = grp.tower.visible = !back; grp.flock.visible = !back && p > 0.3; drone.visible = phoneG.visible = !back && p > 0.3 && p < 0.9; vort.pts.visible = !back;
-    // atmosphere: above, inside or below the cloud deck
     const cy = C.position.y; const approach = C.position.x < 9000;
     inCloud = approach ? ss(CB - 25, CB + 140, cy) * (1 - ss(CTOP - 160, CTOP + 30, cy)) : 0;
     const above = cy > CTOP - 60;
-    const pre = back ? 0 : 1 - ss(0.02, 0.2, p); // pre-dawn darkness fades as the descent begins
-    setSun(back ? 7 : lerp(-1.2, 1.5, ss(0, 0.24, p)));
-    starsU.uA.value = back ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.min(window.devicePixelRatio || 1, 2) * q;
+    const pre = back ? 0 : 1 - ss(0.02, 0.2, p);
+    setSun(back ? 7 : lerp(-1.4, 0.8, ss(0, 0.24, p)));
+    starsU.uA.value = back ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.max(1.0, DPR * q);
     S.environment = above ? envAbove : envBelow;
-    if (above) { cA.setRGB(0.55, 0.6, 0.7); S.fog.color.copy(cA); S.fog.density = 0.000012; }
-    else { cA.setRGB(0.6, 0.66, 0.74); cB.setRGB(0.86, 0.88, 0.9); S.fog.color.copy(cA).lerp(cB, inCloud); S.fog.density = lerp(0.00011, 0.012, Math.pow(inCloud, 1.5)); }
+    if (above) { cA.setRGB(0.45, 0.54, 0.66); S.fog.color.copy(cA); S.fog.density = 0.000012; }
+    else {
+      // Crisp cold dawn slate-blue haze (never flat muddy grey) so runway lights, approach strobes, dawn ridge & 747SP pop cleanly
+      cA.setRGB(0.16, 0.23, 0.33); cB.setRGB(0.84, 0.87, 0.91);
+      S.fog.color.copy(cA).lerp(cB, inCloud);
+      S.fog.density = lerp(0.000075, 0.011, Math.pow(inCloud, 1.5));
+    }
     cloudU.uFogD.value = S.fog.density; cloudU.uFogC.value.copy(S.fog.color); lpFog.value = S.fog.density;
     if (back) { cloudU.uLit.value.setRGB(1.0, 0.98, 0.97); cloudU.uShade.value.setRGB(0.6, 0.67, 0.78); cloudU.uSunC.value.setRGB(1.0, 0.85, 0.7); }
     else if (above) { cloudU.uLit.value.setRGB(0.78 + pre * -0.25, 0.6 - pre * 0.2, 0.55 - pre * 0.12); cloudU.uShade.value.setRGB(0.16, 0.19, 0.28); cloudU.uSunC.value.setRGB(1.0, 0.55, 0.3).multiplyScalar(1 - pre * 0.5); }
-    else { cloudU.uLit.value.setRGB(0.62, 0.65, 0.72); cloudU.uShade.value.setRGB(0.36, 0.39, 0.46); cloudU.uSunC.value.setRGB(0.9, 0.55, 0.35); }
-    hemi.intensity = back ? 1.2 : above ? 0.35 + (1 - pre) * 0.35 : 0.75; sunL.intensity = back ? 2 : above ? 0.8 * (1 - pre * 0.7) : 0.55;
-    // render order of the cloud slices: far to near; cull upper slices during low ground/sentry/tower shots
+    else { cloudU.uLit.value.setRGB(0.44, 0.50, 0.60); cloudU.uShade.value.setRGB(0.16, 0.21, 0.30); cloudU.uSunC.value.setRGB(0.95, 0.62, 0.38); }
+    hemi.intensity = back ? 1.2 : above ? 0.35 + (1 - pre) * 0.35 : 0.42;
+    sunL.intensity = back ? 2 : above ? 0.8 * (1 - pre * 0.7) : 0.78;
     const lowShot = !back && !above && inCloud < 0.05 && cy < 260;
     slices.forEach((m, i) => {
       m.renderOrder = 10 + Math.round(2000 - Math.abs(cy - m.userData.y));
-      m.visible = back ? m.userData.y > CB + 300 : lowShot ? i < 6 : true;
+      m.visible = back ? m.userData.y > CB + 300 : lowShot ? i < 2 : true;
     });
-    const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.renderOrder = 3001;
+    const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.visible = false;
     sky.position.copy(C.position); stars.position.copy(C.position);
     lpScale.value = H * R.getPixelRatio() / (2 * Math.tan(C.fov * DEG / 2));
-    // airliner lights
-    const sp = plane.sprites, dcam = C.position.distanceTo(PL.position), grow = Math.max(1, dcam / 300);
+    const sp = plane.sprites, dcam = C.position.distanceTo(PL.position), grow = Math.max(1, dcam / 280);
     const strobe = (t * 0.95) % 1, sOn = strobe < 0.05 || (strobe > 0.12 && strobe < 0.17);
     sp.strL.visible = sp.strR.visible = !cockpit && sOn; sp.bcn.visible = sp.bcn2.visible = !cockpit && Math.sin(t * 6.5) > 0.7;
-    Object.values(sp).forEach((s) => s.scale.setScalar(s.userData.base * Math.min(grow, 40) * (s === sp.landL || s === sp.landR || s === sp.nose ? 1.4 : 1)));
-    coneU.uMist.value = below ? 1 : 0.3; coneU.uI.value = 1;
-    // wingtip vortices in the chase and the go-around
+    Object.values(sp).forEach((s) => s.scale.setScalar(s.userData.base * Math.min(grow, 44) * (s === sp.landL || s === sp.landR || s === sp.nose ? 1.55 : 1)));
+    coneU.uMist.value = below ? 1.15 : 0.3; coneU.uI.value = 1;
     if (!cockpit && !back && (p > 0.34 && p < 0.47 || p > 0.8 && p < 0.88)) for (const z of [-29.8, 29.8]) { const w = body.localToWorld(V(-4, 3.3, z)); vort.add({ p: w, age: 0, life: 2.6, ang: Math.random() * 6, r: 0.4 + Math.random() * 1.2, s: 1.4, a: 0.18 }); }
     vort.update(dt);
-    // snow in the air near the ground
-    snowU.uCam.value.copy(C.position); snowU.uA.value = !back && cy < 300 ? (inTower ? 0.5 : 1) : 0;
-    // sentry state and grade
+    snowU.uA.value = 0;
     const alert = p > 0.652 && p < 0.80 ? 1 : 0, risk = clamp(0.12 + ss(0.56, 0.635, p) * 0.86, 0, 1);
-    if (towerFx.red) { towerFx.red.intensity = alert ? 3.2 * (Math.sin(t * 11) > -0.3 ? 1 : 0.2) : 0; towerFx.dome.material.color.setRGB(alert && Math.sin(t * 11) > -0.3 ? 4 : 0.25, 0.04, 0.03); }
-    if (inTower && (modeChanged || forced != null || frameN % 3 === 0)) {
+    if (towerFx.red) { towerFx.red.intensity = alert ? 2.6 * (Math.sin(t * 11) > -0.3 ? 1 : 0.25) : 0; towerFx.dome.material.color.setRGB(alert && Math.sin(t * 11) > -0.3 ? 4 : 0.25, 0.04, 0.03); }
+    // Throttle live ATC monitor redraws + Sky Sentry live feed RT cleanly to 12 Hz (static screens drawn once)
+    const forcedChanged = forced !== lastForced;
+    lastForced = forced;
+    if (inTower && (modeChanged || forcedChanged || (now - lastMonT >= 83))) {
+      lastMonT = now;
       drawScreens(t, { alert, risk, ga: st.ga, ft: st.ft, kt: st.kt, nm: st.nm, flock: flockC(p, V(0, 0, 0)) });
       sentAim(clamp(p, 0.6, 0.64)); grp.tower.visible = false; const fg = S.fog.density; R.setRenderTarget(feedRT); R.render(S, sentCam); R.setRenderTarget(null); grp.tower.visible = true; S.fog.density = fg;
     }
-    if (cockpit && (modeChanged || forced != null || frameN % 4 === 0)) {
+    if (cockpit && (modeChanged || forcedChanged || frameN % 5 === 0)) {
       const s2 = { pitch: st.pitch, roll: st.roll, kt: st.kt, ft: st.ft, hdg: 270 + Math.sin(t * 0.2) * 0.6, ga: st.ga, app: st.app, gsd: Math.sin(t * 0.5) * 0.15, nm: Math.max(0.3, st.nm), n1: st.n1, gear: st.gear, sel: st.ga ? 160 : st.app ? 140 : 250, tfc: p > 0.9 };
       drawPFD(ck.pfd.getContext('2d'), 512, 512, s2); drawND(ck.nd.getContext('2d'), 512, 512, s2); drawEICAS(ck.eicas.getContext('2d'), 512, 512, s2); drawMCP(ck.mcp.getContext('2d'), 1536, 128, s2);
       ck.pfdT.needsUpdate = ck.ndT.needsUpdate = ck.eicasT.needsUpdate = ck.mcpT.needsUpdate = true;
       ck.levers.forEach((l) => { l.rotation.z = -0.2 - st.n1 * 0.55; });
     }
     wetU.uWet.value = cockpit ? clamp(inCloud * 1.3 + (p > 0.24 && p < 0.3 ? 0.35 * (1 - ss(0.24, 0.3, p)) : 0), 0, 1) : 0; wetU.uFlow.value = 0.6 + st.kt / 300;
-    // grade per shot
-    let exp = back ? 0.85 : above ? lerp(0.95, 0.7, 1 - pre) : sh.mode === 'tower' ? 0.94 : sh.mode === 'sentry' ? 1.02 : 0.96;
-    if (cockpit && !above) exp *= 1.0;
-    exp *= 1 - inCloud * 0.12 + (inCloud > 0.2 ? (Math.sin(t * 23) * 0.5 + Math.sin(t * 37)) * 0.04 * inCloud : 0);
+    let exp = back ? 0.85 : above ? lerp(0.95, 0.72, 1 - pre) : sh.mode === 'tower' ? 1.06 : sh.mode === 'sentry' ? 1.12 : 1.08;
+    exp *= 1 - inCloud * 0.10;
     let dip = 0; if (!back) for (const c of CUTS) { const d = Math.abs(p - c); dip = Math.max(dip, 1 - ss(0.0007, 0.0045, d)); }
-    let white = back ? ss(-innerHeight * 0.85, innerHeight * 0.02, rf.bottom) * 0.95 : inCloud * 0.55 + ss(0.935, 0.975, p) * 1.0;
+    let white = back ? ss(-innerHeight * 0.85, innerHeight * 0.02, rf.bottom) * 0.95 : inCloud * 0.45 + ss(0.935, 0.975, p) * 1.0;
     if (!back && p > 0.53 && p < 0.548) white = Math.max(white, 1 - ss(0.0, 0.006, Math.abs(p - 0.545)));
     G.uExp.value = exp; G.uDip.value = dip * (p > 0.53 && p < 0.55 ? 0 : 1); G.uWhite.value = Math.min(1, white);
-    G.uSensor.value = sh.mode === 'sentry' ? 1 : 0; G.uCA.value = 0.0012 + (sh.shake || 0) * 0.006; G.uSat.value = back ? 0.55 : 1;
-    G.uTint.value.set(back ? 0.97 : 1.02, 1, back ? 1.06 : 1.0); G.uLift.value = back ? 0.1 : 0; G.uVig.value = back ? 0.25 : 0.6; G.uGrain.value = back ? 0.02 : 0.035;
-    bloom.threshold = sh.mode === 'tower' ? 1.1 : 1.15;
-    bloom.strength = back ? 0.25 : sh.mode === 'tower' ? 0.32 : 0.38;
+    G.uSensor.value = sh.mode === 'sentry' ? 1 : 0; G.uCA.value = 0.0005 + (sh.shake || 0) * 0.004; G.uSat.value = back ? 0.55 : 1.04;
+    G.uTint.value.set(back ? 0.97 : 1.0, 1.0, back ? 1.06 : 1.02); G.uLift.value = back ? 0.1 : 0; G.uVig.value = back ? 0.22 : 0.36; G.uGrain.value = back ? 0.004 : 0.008;
+    bloom.threshold = sh.mode === 'tower' ? 1.02 : 1.08;
+    bloom.strength = back ? 0.22 : sh.mode === 'tower' ? 0.32 : 0.34;
     // sound
     if (AU.ready && S0.soundOn) {
       const ac = AU.ac, ct = ac.currentTime, near = back ? 0 : 1;
@@ -1795,7 +1780,7 @@
   if (window.FilmPlayer && framesCv) {
     window.FilmPlayer.load(framesCv, 'assets/films/sky/manifest.json').then((pl) => { if (pl) { framePl = pl; useFrames = true; stage.classList.add('frames'); } }).catch(() => {});
   }
-  window.film = { setProgress: (v) => { forced = v == null ? null : clamp(+v, 0, 1); }, get progress() { return ps; } };
+  window.film = { setProgress: (v) => { forced = v == null ? null : clamp(+v, 0, 1); }, get progress() { return ps; }, get dpr() { return R.getPixelRatio(); } };
   const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
   loads.push(fontsReady);
   const all = Promise.all(loads);

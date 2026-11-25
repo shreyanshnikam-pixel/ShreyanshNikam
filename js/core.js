@@ -8,14 +8,18 @@
   const SITE = window.SITE = { rm, touch, glOk, progress: 0, listeners: [], onScroll: (f) => SITE.listeners.push(f) };
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  // ---- smooth scroll, synced to ScrollTrigger through gsap.ticker (snappy low-latency response) ----
-  let lenis = null;
-  if (!rm) {
-    lenis = SITE.lenis = new Lenis({ duration: 0.75, wheelMultiplier: 1.15, easing: (t) => 1 - Math.pow(1 - t, 3), smoothWheel: true });
-    lenis.on('scroll', ScrollTrigger.update);
-    gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
-    document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { const id = a.getAttribute('href'); if (id.length < 2) return; const el = document.querySelector(id); if (!el) return; e.preventDefault(); lenis.scrollTo(el, { duration: 1.0 }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); }));
-  }
+  // ---- pure 100% native scrolling (instant wheel/trackpad response, zero artificial inertia lag) ----
+  SITE.lenis = null;
+  document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
+    const id = a.getAttribute('href');
+    if (id.length < 2) return;
+    const el = document.querySelector(id);
+    if (!el) return;
+    e.preventDefault();
+    el.scrollIntoView({ behavior: rm ? 'auto' : 'smooth', block: 'start' });
+    el.setAttribute('tabindex', '-1');
+    el.focus({ preventScroll: true });
+  }));
 
   // ---- header: hide on scroll down, show on scroll up; colour follows the section ----
   const hdr = document.querySelector('.hdr'); let lastY = 0;
@@ -112,37 +116,38 @@
   };
   if (soundBtn) soundBtn.addEventListener('click', () => SITE.setSound(!SITE.soundOn));
 
-  // ---- preloader: counter 000 to 100 while an ice crystal grows, then a white flash and the title rises ----
+  // ---- preloader: scenic mountain frame, swift progress hairline, calm fade-out (zero artificial stall) ----
   SITE.boot = (loadPromise, onDone) => {
-    const pre = document.querySelector('.pre'), cnt = pre && pre.querySelector('.count'), crystal = pre && pre.querySelectorAll('.cr');
-    let shown = 0, target = 0, lastT = performance.now();
-    if (crystal) crystal.forEach((p) => { const L = p.getTotalLength ? p.getTotalLength() : 100; p.style.strokeDasharray = L; p.style.strokeDashoffset = L; });
+    const pre = document.querySelector('.pre');
+    const cnt = pre && pre.querySelector('.count');
+    const bar = pre && pre.querySelector('.pre-bar i');
+    let shown = 0, target = 0.12, doneFlag = false, lastT = performance.now();
     const step = () => {
-      const now = performance.now(), dtt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
-      shown = Math.min(target, shown + dtt * (target >= 1 ? 1.6 : 0.9)); if (target >= 1 && shown > 0.995) shown = 1;
+      const now = performance.now(), dtt = Math.min(0.12, (now - lastT) / 1000); lastT = now;
+      const rate = target >= 1 ? 4.8 : 1.6;
+      shown = Math.min(target, shown + dtt * rate);
+      if (target >= 1 && shown > 0.985) shown = 1;
       if (cnt) cnt.textContent = String(Math.round(shown * 100)).padStart(3, '0');
-      if (crystal) crystal.forEach((p, i) => { const L = parseFloat(p.style.strokeDasharray), k = Math.min(1, Math.max(0, shown * 1.25 - i * 0.04)); p.style.strokeDashoffset = L * (1 - k); });
+      if (bar) bar.style.transform = `scaleX(${shown.toFixed(4)})`;
       if (shown < 1) requestAnimationFrame(step); else finish();
     };
     const finish = () => {
-      if (rm) {
-        if (pre) pre.classList.add('done');
-        onDone && onDone();
-        ScrollTrigger.refresh();
-        SITE.reveals();
-        return;
-      }
-      const flash = document.querySelector('.flash');
+      if (doneFlag) return;
+      doneFlag = true;
+      if (pre) pre.classList.add('done');
+      onDone && onDone();
+      ScrollTrigger.refresh();
+      if (rm) { SITE.reveals(); return; }
       const tl = gsap.timeline();
-      if (flash) tl.to(flash, { opacity: 1, duration: 0.25, ease: 'power3.out' });
-      tl.add(() => { if (pre) pre.classList.add('done'); onDone && onDone(); ScrollTrigger.refresh(); });
-      if (flash) tl.to(flash, { opacity: 0, duration: 1.1, ease: 'expo.out' });
       const t = document.querySelector('[data-intro]');
-      if (t) { const st = new SplitText(t, { type: 'chars,lines', linesClass: 'line-mask' }); tl.from(st.chars, { yPercent: 120, filter: 'blur(12px)', opacity: 0, duration: 1.2, ease: 'expo.out', stagger: 0.035 }, '-=0.95'); }
-      document.querySelectorAll('[data-intro-fade]').forEach((el, i) => tl.from(el, { y: 24, opacity: 0, duration: 1, ease: 'power3.out' }, '-=' + (i ? 0.85 : 0.7)));
+      if (t) {
+        const st = new SplitText(t, { type: 'chars,lines', linesClass: 'line-mask' });
+        tl.from(st.chars, { yPercent: 105, opacity: 0, duration: 0.85, ease: 'expo.out', stagger: 0.022 }, 0.08);
+      }
+      document.querySelectorAll('[data-intro-fade]').forEach((el, i) => tl.from(el, { y: 18, opacity: 0, duration: 0.72, ease: 'power3.out' }, 0.16 + i * 0.07));
       SITE.reveals();
     };
-    const fake = setInterval(() => { target = Math.min(0.9, target + 0.02); }, 120);
+    const fake = setInterval(() => { target = Math.min(0.92, target + 0.06); }, 60);
     (loadPromise || Promise.resolve()).catch(() => {}).then(() => { clearInterval(fake); target = 1; if (rm) shown = 1; });
     SITE.setLoad = (v) => { target = Math.max(target, Math.min(0.97, v)); };
     requestAnimationFrame(step);

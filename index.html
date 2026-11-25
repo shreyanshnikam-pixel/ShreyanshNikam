@@ -31,7 +31,7 @@
 @media (max-width:960px){.sec .copy.copy-wide{width:min(820px,82vw)}}
 @media (max-width:860px){.awards{grid-template-columns:1fr}}
 @media (max-width:760px){.sec .copy,.sec .copy.copy-wide{width:100%}.pinwrap{min-height:auto}.pinwrap .copy{position:relative;min-height:auto;padding:0}}
-.pinwrap{min-height:260vh;align-items:flex-start}.pinwrap .copy{position:sticky;top:0;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:100px 0}
+.pinwrap{min-height:180vh;align-items:flex-start}.pinwrap .copy{position:sticky;top:0;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:100px 0}
 .rm .pinwrap{min-height:auto}.rm .pinwrap .copy{position:relative;min-height:auto;padding:0}
 .work{display:grid;gap:14px;margin-top:30px}.work .glass{padding:20px 22px}
 .work .num{font:500 11.5px/1 var(--mono);letter-spacing:.14em;color:var(--ink)}
@@ -49,15 +49,13 @@
 <body data-base="light">
 <a class="skip" href="#main">Skip to content</a>
 <div class="pre" role="status" aria-label="Loading">
-  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
-    <g id="arm"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-  </svg>
-  <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
+  <img class="pre-bg" src="assets/loading-mountain.webp" alt="" width="1600" height="900" fetchpriority="high">
+  <div class="pre-veil" aria-hidden="true"></div>
+  <div class="pre-in">
+    <div class="pre-row"><span class="pre-name">Shreyansh Nikam</span><span class="count">000</span></div>
+    <div class="pre-bar" aria-hidden="true"><i></i></div>
+    <div class="pre-meta"><span>40.7876° N · 74.3274° W</span><span>Livingston, NJ</span></div>
+  </div>
 </div>
 <div class="flash" aria-hidden="true"></div>
 
@@ -86,7 +84,7 @@
       <div class="kpi"><div class="n">1st</div><div class="d hud">prize, best overall</div></div>
     </div>
     <div class="btns" data-intro-fade><a class="btn primary" href="projects.html">See my projects and achievements</a><a class="btn" href="#about">Read about me</a></div>
-    <div class="cue" aria-hidden="true"><span class="hud">Scroll</span><span class="line"><svg class="flake" viewBox="-6 -6 12 12" stroke="#5E8AAB" stroke-width="1" fill="none"><path d="M0-5V5M-4.3-2.5L4.3 2.5M-4.3 2.5L4.3-2.5"/></svg></span></div>
+    <div class="cue" aria-hidden="true"><span class="hud">Scroll</span><span class="line"></span></div>
   </section>
 
   <section class="sec" id="about" data-section="About me">
@@ -189,7 +187,7 @@
 </main>
 <footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html">Credits</a></footer>
 
-<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/vendor/three-bundle.js"></script><script src="js/kit.js"></script><script src="js/film.js"></script>
 <script src="js/world.js"></script>

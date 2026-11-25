@@ -1,5 +1,5 @@
-/* Projects: two refractive ice blocks (Sky Sentry, Echo) in a glacier valley: graded HDRI sky, rock-and-snow ridges, fog banks, god rays, falling snow. Hover cracks a block; choosing one flies the camera into it.
-   Classic script; needs THREE (r147 bundle), FK (kit.js), SITE (core.js). The real <a class="blk"> links stay on top for keyboard and screen readers. */
+/* Projects: two architectural frosted glass blocks (Sky Sentry, Echo) in a calm frosted studio horizon.
+   Direct antialiased WebGL (DPR >= 1.0, ACESFilmicToneMapping), instant RoomEnvironment lighting (<15ms), zero snow clutter. */
 (function () {
   const T = THREE, S0 = window.SITE, V = (x, y, z) => new T.Vector3(x, y, z);
   const cv = document.getElementById('pgl'), stage = document.querySelector('.pstage');
@@ -9,244 +9,105 @@
   if (!S0.glOk || !cv) { S0.boot(Promise.resolve()); return; }
 
   let R;
-  try { R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' }); }
+  try { R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); }
   catch (e) { S0.boot(Promise.resolve()); return; }
   document.documentElement.classList.add('gl');
-  const loadAll = [];
 
-  // ---------- renderer, scene, post (same pipeline as the home page) ----------
-  R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping;
-  const S = new T.Scene(), C = new T.PerspectiveCamera(32, 1, 0.1, 700);
-  S.background = new T.Color(0.9, 0.93, 0.955);
-  const FOG = new T.Color(0.9, 0.93, 0.955), FOG_D = 0.0055; S.fog = new T.FogExp2(FOG.clone(), FOG_D);
-  // the sun: low, just above the far ridge, slightly right of centre (the light comes from behind the blocks)
-  const SUN = V(Math.sin(0.06), Math.sin(T.MathUtils.degToRad(5.5)), -Math.cos(0.06)).normalize();
-  const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
-  comp.addPass(new T.RenderPass(S, C));
-  // screen-space god rays: 14 dithered taps toward the sun (2.3x faster & smoother than 32 unjittered taps)
-  const rays = new T.ShaderPass({
-    uniforms: { tDiffuse: { value: null }, uSun: { value: new T.Vector2(0.5, 0.8) }, uAmt: { value: 0 } },
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  R.outputEncoding = T.sRGBEncoding;
+  R.toneMapping = T.ACESFilmicToneMapping;
+  R.toneMappingExposure = 1.02;
+
+  const S = new T.Scene(), C = new T.PerspectiveCamera(32, 1, 0.1, 400);
+  const FOG = new T.Color('#EDF3F8'), FOG_D = 0.009;
+  S.background = FOG.clone();
+  S.fog = new T.FogExp2(FOG.clone(), FOG_D);
+
+  const mobile = () => innerWidth < 760;
+  const gov = { q: 1, ema: 12, n: 0 };
+  const DPR = () => Math.max(1.0, Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2) * gov.q);
+
+  const pm = new T.PMREMGenerator(R);
+  S.environment = pm.fromScene(new T.RoomEnvironment(), 0.04).texture;
+  pm.dispose();
+
+  const sun = new T.DirectionalLight(0xffffff, 1.35);
+  sun.position.set(-14, 18, 22);
+  S.add(sun);
+  S.add(new T.HemisphereLight(0xf6f9fc, 0xcad7e2, 0.92));
+  const rim = new T.DirectionalLight(0xa9cbe3, 0.55);
+  rim.position.set(14, 10, -24);
+  S.add(rim);
+
+  const sky = new T.Mesh(new T.SphereGeometry(320, 32, 16), new T.ShaderMaterial({
+    side: T.BackSide, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
     fragmentShader: [
-      'uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uAmt; varying vec2 vUv;',
-      'float rh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }',
-      'void main(){ vec3 base = texture2D(tDiffuse, vUv).rgb; if (uAmt < 0.001) { gl_FragColor = vec4(base, 1.0); return; }',
-      '  vec2 dl = (vUv - uSun) * (0.9 / 14.0); vec2 q = vUv - dl * rh(vUv * 512.0); float acc = 0.0, dec = 1.0;',
-      '  for (int i = 0; i < 14; i++){ q -= dl; vec3 c = texture2D(tDiffuse, clamp(q, 0.0, 1.0)).rgb; acc += max(dot(c, vec3(0.2126, 0.7152, 0.0722)) - 1.12, 0.0) * dec; dec *= 0.885; }',
-      '  gl_FragColor = vec4(base + vec3(1.0, 0.985, 0.96) * acc / 14.0 * uAmt, 1.0); }'].join('\n'),
-  });
-  comp.addPass(rays);
-  const bloom = new T.UnrealBloomPass(new T.Vector2(128, 128), 0.3, 0.5, 0.985); comp.addPass(bloom);
-  const grade = new T.ShaderPass({
-    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uFlash: { value: 0 }, uBlur: { value: 0 }, uRes: { value: new T.Vector2(1, 1) } },
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: [
-      'uniform sampler2D tDiffuse; uniform float uT, uFlash, uBlur; uniform vec2 uRes; varying vec2 vUv;',
-      'float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }',
-      'float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }',
-      'float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a*n2(p); p *= 2.03; a *= 0.5; } return s; }',
-      'vec3 knee(vec3 x){ vec3 k = vec3(0.82); return mix(x, k + 0.18*(1.0 - exp(-(x - k)/0.18)), step(k, x)); }',
+      'varying vec3 vD;',
       'void main(){',
-      '  vec2 c = vUv - 0.5; float r2 = dot(c,c); vec2 o = c * (0.0016 + uFlash*0.006 + uBlur*0.004) * (1.0 + r2*4.0);',
-      '  vec3 col = vec3(texture2D(tDiffuse, vUv + o).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - o).b);',
-      '  if (uBlur > 0.002) {',
-      '    vec2 dir = c * (uBlur * 0.022);',
-      '    vec3 mb = col * 0.34;',
-      '    mb += texture2D(tDiffuse, clamp(vUv - dir * 0.45, 0.0, 1.0)).rgb * 0.24;',
-      '    mb += texture2D(tDiffuse, clamp(vUv - dir * 0.90, 0.0, 1.0)).rgb * 0.18;',
-      '    mb += texture2D(tDiffuse, clamp(vUv + dir * 0.45, 0.0, 1.0)).rgb * 0.14;',
-      '    mb += texture2D(tDiffuse, clamp(vUv + dir * 0.90, 0.0, 1.0)).rgb * 0.10;',
-      '    col = mix(col, mb, clamp(uBlur * 1.4, 0.0, 0.65));',
-      '  }',
-      '  col = knee(col); col = pow(max(col, 0.0), vec3(1.0/2.2));',
-      '  col *= mix(1.0, smoothstep(1.3, 0.2, r2*1.6), 0.3 + uBlur*0.14);',
-      '  if (uFlash > 0.001) {',
-      '    float m = fbm(vUv * vec2(uRes.x/uRes.y, 1.0) * 3.0 + uT * 0.15);',
-      '    float w = smoothstep(m - 0.18, m + 0.18, uFlash * 1.3); col = mix(col, vec3(1.0), w);',
-      '  }',
-      '  col += (h(vUv * uRes + fract(uT*7.1)*100.0) - 0.5) * 0.03;',
+      '  float y = clamp(vD.y, -0.2, 1.0);',
+      '  vec3 low = vec3(0.925, 0.950, 0.972);',
+      '  vec3 mid = vec3(0.956, 0.971, 0.985);',
+      '  vec3 top = vec3(0.848, 0.896, 0.938);',
+      '  vec3 col = mix(low, mid, smoothstep(-0.04, 0.08, y));',
+      '  col = mix(col, top, smoothstep(0.08, 0.65, y));',
       '  gl_FragColor = vec4(col, 1.0);',
       '}'].join('\n'),
-  });
-  comp.addPass(grade);
-  const mobile = () => innerWidth < 760;
-  const DPR = () => Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2) * gov.q;
-  // adaptive resolution targeting <16ms frame time
-  const gov = { q: 1, ema: 12, n: 0 };
-
-  // ---------- light and environment ----------
-  const sun = new T.DirectionalLight(0xffffff, 2.0); sun.position.copy(SUN).multiplyScalar(60); S.add(sun);
-  S.add(new T.HemisphereLight(0xf4f8ff, 0xc3d2df, 0.85));
-  const pm = new T.PMREMGenerator(R);
-  // sky dome: Poly Haven snow_field_puresky (2k), turned so its own sun lines up with ours, graded to the icy palette
-  const skyU = { tSky: { value: null }, uOn: { value: 0 }, uYaw: { value: 2.265 }, uExp: { value: 1.2 }, uSun: { value: SUN }, uFog: { value: FOG } };
-  const sky = new T.Mesh(new T.SphereGeometry(600, 48, 24), new T.ShaderMaterial({
-    uniforms: skyU, side: T.BackSide, depthWrite: false, fog: false,
-    vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position + cameraPosition, 1.0); gl_Position = p.xyww; }',
-    fragmentShader: [
-      'uniform sampler2D tSky; uniform float uOn, uYaw, uExp; uniform vec3 uSun, uFog; varying vec3 vDir;',
-      'void main(){ vec3 d = normalize(vDir);',
-      '  float a = atan(d.z, d.x) + uYaw; vec2 uv = vec2(fract(a * 0.15915494 + 0.5), asin(clamp(d.y, -1.0, 1.0)) * 0.31830988 + 0.5);',
-      '  vec3 c = mix(vec3(0.62, 0.66, 0.7), texture2D(tSky, uv).rgb, uOn) * uExp;',
-      '  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, 0.55) * vec3(0.93, 0.97, 1.03);',
-      '  c = mix(c, c * vec3(0.6, 0.75, 0.92), smoothstep(-0.01, 0.32, d.y));',
-      '  c = mix(c, uFog, exp(-abs(d.y) * 22.0) * 0.5);',
-      '  float s = max(dot(d, uSun), 0.0);',
-      '  c += vec3(1.0, 0.975, 0.93) * (pow(s, 2200.0) * 26.0 + pow(s, 160.0) * 0.85 + pow(s, 14.0) * 0.2);',
-      '  gl_FragColor = vec4(c, 1.0); }'].join('\n'),
   }));
-  sky.frustumCulled = false; sky.renderOrder = -10; S.add(sky);
-  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { skyU.tSky.value = tx; skyU.uOn.value = 1; tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())));
-  const TL = new T.TextureLoader();
-  const ltex = (f, srgb, rep) => new Promise((res) => { const t = TL.load(f, () => res(t), undefined, () => res(t)); t.wrapS = t.wrapT = T.RepeatWrapping; if (srgb) t.encoding = T.sRGBEncoding; t.anisotropy = 8; t.repeat.set(rep, rep); });
-  const textCanvas = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8; t.userData.redraw = (...a) => { const g = c.getContext('2d'); g.clearRect(0, 0, w, h); draw(g, w, h, ...a); t.needsUpdate = true; }; t.userData.redraw(); return t; };
-  const rnd = FK.rng(7);
+  sky.frustumCulled = false; S.add(sky);
 
-  // ---------- snowfield with a faint contour grid, distant mountains ----------
-  const gMat = new T.MeshStandardMaterial({ color: 0xeef3f7, roughness: 0.94, normalScale: new T.Vector2(0.75, 0.75) });
-  const GR = 110;
-  loadAll.push(Promise.all([
-    ltex('assets/textures/acg/Snow008A_2K-JPG_Color.jpg', true, GR),
-    ltex('assets/textures/acg/Snow008A_2K-JPG_NormalGL.jpg', false, GR),
-    ltex('assets/textures/acg/Snow008A_2K-JPG_Roughness.jpg', false, GR),
-  ]).then(([d, n, r]) => { gMat.map = d; gMat.normalMap = n; gMat.roughnessMap = r; gMat.needsUpdate = true; }));
-  FK.patch(gMat, 'p-snow-grid-glint', {}, 'float psh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }', [
-    '{ vec2 g = abs(fract(vWP.xz / 4.0 - 0.5) - 0.5) / fwidth(vWP.xz / 4.0);',
+  const textCanvas = (w, h, draw) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8;
+    t.userData.redraw = (...a) => { const g = c.getContext('2d'); g.clearRect(0, 0, w, h); draw(g, w, h, ...a); t.needsUpdate = true; };
+    t.userData.redraw(); return t;
+  };
+
+  const gMat = new T.MeshStandardMaterial({ color: 0xedf3f8, roughness: 0.78, metalness: 0.02, envMapIntensity: 0.45 });
+  FK.patch(gMat, 'p-frosted-grid', {}, '', [
+    '{ vec2 g = abs(fract(vWP.xz / 4.5 - 0.5) - 0.5) / max(fwidth(vWP.xz / 4.5), vec2(0.0005));',
     '  float line = 1.0 - min(min(g.x, g.y), 1.0);',
     '  float dist = length(vWP.xz - cameraPosition.xz);',
-    '  float fade = exp(-dist * 0.035);',
-    '  vec3 vd = normalize(cameraPosition - vWP);',
-    '  float sparkle = smoothstep(0.985, 1.0, psh(floor(vWP.xz * 22.0) + floor(vd.xz * 14.0))) * exp(-dist * 0.05) * 0.5;',
-    '  outgoingLight += vec3(0.95, 0.98, 1.0) * sparkle;',
-    '  outgoingLight = mix(outgoingLight, vec3(0.6, 0.69, 0.77), line * fade * 0.24); }'].join('\n'), true);
-  const ground = new T.Mesh(new T.PlaneGeometry(800, 800).rotateX(-Math.PI / 2), gMat); S.add(ground);
-  const rockT = TL.load('assets/textures/rock_diff.jpg', () => { mtnU.uRockOn.value = 1; }); rockT.wrapS = rockT.wrapT = T.RepeatWrapping; rockT.encoding = T.sRGBEncoding;
-  const mtnU = { tRock: { value: rockT }, uRockOn: { value: 0 }, uFogC: { value: FOG }, uGy: { value: 0 } };
-  const mtnM = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, fog: false });
-  mtnM.extensions = { derivatives: true };
-  mtnM.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, mtnU);
-    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = 'uniform sampler2D tRock; uniform float uRockOn, uGy; uniform vec3 uFogC; varying vec3 vWP;\nfloat mh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }\nfloat mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }\n' +
-      sh.fragmentShader.replace('#include <color_fragment>', [
-        '#include <color_fragment>',
-        '{ vec3 nW = normalize(cross(dFdx(vWP), dFdy(vWP))); float sl = abs(nW.y);',
-        '  float br = mn(vWP.xz * 0.06) * 0.6 + mn(vWP.xz * 0.23) * 0.4;',
-        '  vec3 rk = mix(vec3(0.16, 0.2, 0.26), vec3(0.3, 0.36, 0.43), mn(vWP.xy * vec2(0.08, 0.5)));',
-        '  rk = mix(rk, texture2D(tRock, vWP.xy * 0.03).rgb * vec3(0.7, 0.8, 0.95), uRockOn * 0.75);',
-        '  float sn = smoothstep(0.5, 0.74, sl + (br - 0.5) * 0.35);',
-        '  diffuseColor.rgb = mix(rk, vec3(0.95, 0.97, 0.99), sn); }'].join('\n'))
-      .replace('#include <output_fragment>', [
-        '{ float dist = length(vWP - cameraPosition); float af = 1.0 - exp(-dist * 0.0027);',
-        '  float hf = smoothstep(uGy + 22.0, uGy, vWP.y) * 0.35;',
-        '  outgoingLight = mix(outgoingLight, uFogC, clamp(af + hf * (1.0 - af), 0.0, 0.97)); }',
-        '#include <output_fragment>'].join('\n'));
-  };
-  mtnM.customProgramCacheKey = () => 'proj-ridge';
-  const mtns = new T.Group(); S.add(mtns);
-  const ridge = (zNear, zFar, width, hMax, valley, seed, sx, sz) => {
-    const dep = zFar - zNear, g = new T.PlaneGeometry(width, dep, sx, sz).rotateX(-Math.PI / 2), p = g.attributes.position;
-    for (let k = 0; k < p.count; k++) {
-      const x = p.getX(k), z = p.getZ(k), t = (dep / 2 - z) / dep;
-      let n = 0, a = 0.5, f = 0.012 * (600 / width);
-      for (let o = 0; o < 5; o++) { const v = 1 - Math.abs(2 * FK.noise(x * f + seed, (z + zNear) * f * 1.6, seed * 0.37) - 1); n += a * v * v; a *= 0.5; f *= 2.1; }
-      const env = (valley + (1 - valley) * ss(0, width * 0.3, Math.abs(x))) * ss(0, 0.55, t);
-      p.setY(k, hMax * env * (0.3 + 1.1 * n));
-    }
-    g.computeVertexNormals();
-    const m = new T.Mesh(g, mtnM); m.position.z = -(zNear + dep / 2); mtns.add(m); return m;
-  };
-  ridge(60, 120, 320, 16, 0.08, 3.1, 100, 26);
-  ridge(110, 230, 560, 42, 0.18, 7.7, 120, 32);
-  ridge(210, 420, 980, 95, 0.32, 12.3, 130, 38);
+    '  float fade = exp(-dist * 0.032);',
+    '  outgoingLight = mix(outgoingLight, vec3(0.68, 0.76, 0.83), line * fade * 0.24); }'].join('\n'), true);
+  const ground = new T.Mesh(new T.PlaneGeometry(500, 500).rotateX(-Math.PI / 2), gMat);
+  S.add(ground);
 
-  // low fog banks drifting across the valley (pre-baked mist texture -> 20x faster than 6x per-pixel fbm)
-  const pMistTex = (() => {
-    const SZ = 256, c = document.createElement('canvas'); c.width = c.height = SZ;
-    const x = c.getContext('2d'), img = x.createImageData(SZ, SZ);
-    for (let j = 0; j < SZ; j++) for (let i = 0; i < SZ; i++) {
-      const u = i / SZ, v = j / SZ;
-      const n = FK.fbm(u * 6, v * 2.5, 3.3, 4);
-      const a = Math.max(0, Math.min(255, Math.round(ss(0.28, 0.76, n) * ss(0, 0.3, v) * ss(1, 0.35, v) * ss(0, 0.18, u) * ss(1, 0.82, u) * 240)));
-      const k = (j * SZ + i) * 4; img.data[k] = 240; img.data[k + 1] = 246; img.data[k + 2] = 250; img.data[k + 3] = a;
+  const pFrost = (() => {
+    const SZ = 128, hgt = new Float32Array(SZ * SZ);
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      const u = x / SZ, v = y / SZ;
+      hgt[y * SZ + x] = FK.fbm(u * 6, v * 6, 2.7, 3) * 0.7 + FK.noise(u * 22, v * 22, 6.1) * 0.3;
     }
-    x.putImageData(img, 0, 0); const tx = new T.CanvasTexture(c); tx.wrapS = T.RepeatWrapping; tx.wrapT = T.ClampToEdgeWrapping; return tx;
+    const nC = document.createElement('canvas'); nC.width = nC.height = SZ;
+    const nX = nC.getContext('2d'), nImg = nX.createImageData(SZ, SZ);
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      const xm = (x - 1 + SZ) % SZ, xp = (x + 1) % SZ, ym = (y - 1 + SZ) % SZ, yp = (y + 1) % SZ;
+      const dx = (hgt[y * SZ + xp] - hgt[y * SZ + xm]) * 1.4, dy = (hgt[yp * SZ + x] - hgt[ym * SZ + x]) * 1.4;
+      const inv = 1 / Math.hypot(dx, dy, 1), i = (y * SZ + x) * 4;
+      nImg.data[i] = Math.round((-dx * inv * 0.5 + 0.5) * 255);
+      nImg.data[i + 1] = Math.round((-dy * inv * 0.5 + 0.5) * 255);
+      nImg.data[i + 2] = Math.round((inv * 0.5 + 0.5) * 255);
+      nImg.data[i + 3] = 255;
+    }
+    nX.putImageData(nImg, 0, 0);
+    const nor = new T.CanvasTexture(nC); nor.wrapS = nor.wrapT = T.RepeatWrapping; nor.repeat.set(2, 2.5);
+    return { nor };
   })();
-  const bankU = { uT: { value: 0 }, tMist: { value: pMistTex } };
-  const bankMat = (sp, a) => new T.ShaderMaterial({
-    uniforms: { uT: bankU.uT, tMist: bankU.tMist, uS: { value: sp }, uA: { value: a }, uC: { value: FOG } }, transparent: true, depthWrite: false, fog: false,
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform float uT, uS, uA; uniform sampler2D tMist; uniform vec3 uC; varying vec2 vUv; void main(){ float m = texture2D(tMist, vec2(vUv.x + uT * uS, vUv.y)).a; float e = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x); gl_FragColor = vec4(uC * 1.04, m * e * uA); }',
-  });
-  const banks = new T.Group(); S.add(banks);
-  [[-30, 200, 9, 0.014, 0.55], [-55, 280, 15, -0.01, 0.6], [-95, 380, 22, 0.008, 0.65], [-145, 520, 28, -0.006, 0.7]].forEach(([z, w, h, sp, a]) => {
-    const m = new T.Mesh(new T.PlaneGeometry(w, h), bankMat(sp, a)); m.position.set((rnd() - 0.5) * 30, h / 2 - 1.2, z); m.userData.h = h; m.renderOrder = -1; banks.add(m);
-  });
 
-  // realistic 6-fold dendritic crystalline snowflakes (rotating, near-lens bokeh, seamless wrap fade, accurate sunlit white + ice-blue shading; off in reduced motion)
-  const SN = rm ? 0 : (mobile() ? 500 : 1200);
-  const snowU = { uT: { value: 0 }, uCam: { value: new T.Vector3() }, uScale: { value: innerHeight }, uWind: { value: 1 } };
-  if (SN) {
-    const sp = new Float32Array(SN * 3), sr = new Float32Array(SN);
-    for (let i = 0; i < SN; i++) { sp.set([rnd() * 44 - 22, rnd() * 18, rnd() * 44 - 22], i * 3); sr[i] = rnd(); }
-    const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3)); sg.setAttribute('aR', new T.BufferAttribute(sr, 1));
-    const snow = new T.Points(sg, new T.ShaderMaterial({
-      uniforms: snowU, transparent: true, depthWrite: false,
-      vertexShader: [
-        'attribute float aR; uniform float uT, uScale, uWind; uniform vec3 uCam;',
-        'varying float vA, vNear, vAng, vGlint;',
-        'void main(){',
-        '  vec3 b = vec3(44.0, 18.0, 44.0); float w = 0.65 + aR * 0.7;',
-        '  vec3 p = position + vec3(uT*0.72*uWind*w + sin(uT*0.42+aR*19.0)*1.15, -uT*(0.38+aR*0.44), uT*0.18 + cos(uT*0.36+aR*13.0)*0.75);',
-        '  vec3 rel = mod(p - uCam + b*0.5, b) - b*0.5;',
-        '  vec3 wf = smoothstep(0.5, 0.34, abs(rel / b)); float wrapFade = wf.x * wf.y * wf.z;',
-        '  vec4 mv = modelViewMatrix * vec4(rel + uCam, 1.0);',
-        '  float z = max(1.0, -mv.z);',
-        '  vNear = smoothstep(6.5, 1.8, z);',
-        '  vAng = aR * 6.28318 + uT * (0.28 + aR * 0.42) * (aR > 0.5 ? 1.0 : -1.0);',
-        '  vGlint = pow(0.5 + 0.5 * sin(uT * 2.2 + aR * 47.0), 6.0);',
-        '  gl_PointSize = clamp((3.2 + aR*3.4 + vNear*6.0) * uScale / z * 0.055, 2.5, 28.0);',
-        '  vA = wrapFade * (0.52 + aR*0.38) * smoothstep(40.0, 7.0, z) * smoothstep(0.8, 2.0, z) * (1.0 - vNear * 0.45);',
-        '  gl_Position = projectionMatrix * mv;',
-        '}'].join('\n'),
-      fragmentShader: [
-        'varying float vA, vNear, vAng, vGlint;',
-        'void main(){',
-        '  vec2 u = (gl_PointCoord - 0.5) * 2.0;',
-        '  float r = length(u); if (r > 1.0) discard;',
-        '  float ca = cos(vAng), sa = sin(vAng);',
-        '  vec2 p = vec2(u.x * ca - u.y * sa, u.x * sa + u.y * ca);',
-        '  float ang = abs(mod(atan(p.y, p.x) + 0.523599, 1.047198) - 0.523599);',
-        '  vec2 q = vec2(cos(ang), sin(ang)) * r;',
-        '  float stem = smoothstep(0.11, 0.025, q.y) * smoothstep(0.95, 0.62, q.x);',
-        '  float b1 = smoothstep(0.085, 0.02, abs(q.y - (q.x - 0.28) * 1.15)) * smoothstep(0.24, 0.34, q.x) * smoothstep(0.74, 0.56, q.x);',
-        '  float b2 = smoothstep(0.075, 0.018, abs(q.y - (q.x - 0.54) * 1.15)) * smoothstep(0.50, 0.58, q.x) * smoothstep(0.90, 0.76, q.x);',
-        '  float core = smoothstep(0.26, 0.06, r);',
-        '  float crystal = clamp(max(max(stem, core), max(b1, b2)), 0.0, 1.0);',
-        '  float bokeh = smoothstep(1.0, 0.08, r) * (0.72 + 0.28 * smoothstep(0.35, 0.85, r));',
-        '  float mask = mix(crystal, bokeh, vNear);',
-        '  if (mask < 0.02) discard;',
-        '  vec3 edgeCol = vec3(0.42, 0.61, 0.78);',
-        '  vec3 whiteCore = vec3(0.96, 0.985, 1.0);',
-        '  vec3 col = mix(edgeCol, whiteCore, smoothstep(0.15, 0.78, mask) * (0.75 + 0.25 * (1.0 - r)));',
-        '  col += vec3(0.32, 0.36, 0.42) * vGlint * smoothstep(0.5, 0.95, crystal);',
-        '  gl_FragColor = vec4(col, vA * mask);',
-        '}'].join('\n'),
-    }));
-    snow.frustumCulled = false; S.add(snow);
-  }
-
-  // ---------- the two blocks ----------
-  const ASP = 0.74, DEP = 0.34; // block: width 0.78, height 1, depth 0.42 (scaled to fit its link)
+  const ASP = 0.74, DEP = 0.34;
   const blockGeo = new T.RoundedBoxGeometry(ASP, 1, DEP, 6, 0.035);
   const etchDraw = {
     sky: (x, w, h) => {
       const L = 64;
-      mono(x, 'HACKPHS · OCTOBER 2026', 26, L, 96, '#1E3447', w - L * 2);
+      mono(x, 'HACKPHS \u00b7 OCTOBER 2026', 26, L, 96, '#1E3447', w - L * 2);
       disp(x, 'SKY SENTRY', 600, 92, L, 200, '#0F1B26', w - L * 2);
       rule(x, L, 246, w - L * 2);
-      [['BEST USE OF', 'SOLANA'], ['BEST USE OF', 'TIGERDATA'], ['OVERALL', '5TH PLACE']].forEach((a, i) => { const y = 350 + i * 196; mono(x, a[0], 24, L, y, '#1E3447', w - L * 2); disp(x, a[1], 600, 70, L, y + 82, '#0F1B26', w - L * 2); });
-      mono(x, '3 AWARDS · SKY SENTRY', 22, L, 940, '#3A5266', w - L * 2);
+      [['BEST USE OF', 'SOLANA'], ['BEST USE OF', 'TIGERDATA'], ['OVERALL', '5TH PLACE']].forEach((a, i) => {
+        const y = 350 + i * 196;
+        mono(x, a[0], 24, L, y, '#1E3447', w - L * 2);
+        disp(x, a[1], 600, 70, L, y + 82, '#0F1B26', w - L * 2);
+      });
+      mono(x, '3 AWARDS \u00b7 SKY SENTRY', 22, L, 940, '#3A5266', w - L * 2);
     },
     echo: (x, w, h) => {
       const L = 64;
@@ -258,102 +119,54 @@
       disp(x, '1ST', 700, 280, L - 10, 680, '#0F1B26', w - L * 2);
       disp(x, 'PRIZE,', 600, 70, L, 786, '#0F1B26', w - L * 2);
       disp(x, 'BEST OVERALL', 600, 70, L, 868, '#0F1B26', w - L * 2);
-      mono(x, '1 AWARD · ECHO', 22, L, 950, '#3A5266', w - L * 2);
+      mono(x, '1 AWARD \u00b7 ECHO', 22, L, 950, '#3A5266', w - L * 2);
     },
   };
-  // etched text: a white highlight under dark ink, like letters cut into ice
   function fit(x, s, font, size, maxW) { let z = size; x.font = font(z); while (x.measureText(s).width > maxW && z > 10) { z -= 2; x.font = font(z); } }
-  function etch(x, s, X, Y, col) { x.globalAlpha = 0.75; x.fillStyle = '#FFFFFF'; x.fillText(s, X + 1, Y + 1.5); x.globalAlpha = 1; x.fillStyle = col; x.fillText(s, X, Y); }
+  function etch(x, s, X, Y, col) { x.globalAlpha = 0.72; x.fillStyle = '#FFFFFF'; x.fillText(s, X + 1, Y + 1.5); x.globalAlpha = 1; x.fillStyle = col; x.fillText(s, X, Y); }
   function mono(x, s, size, X, Y, col, maxW) { x.letterSpacing = '4px'; fit(x, s, (z) => '500 ' + z + 'px "Geist Mono", ui-monospace, monospace', size * 1.3, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function disp(x, s, wt, size, X, Y, col, maxW) { x.letterSpacing = '-2px'; fit(x, s, (z) => wt + ' ' + z + 'px Unbounded, system-ui, sans-serif', size, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function rule(x, X, Y, w) { x.fillStyle = 'rgba(94,138,171,.55)'; x.fillRect(X, Y, w, 2); x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(X, Y + 2, w, 2); }
 
-  // fine crack lines grown from an impact point; revealed outward by a shader uniform
   const crackTex = (seed, ox, oy) => textCanvas(624, 800, (x, w, h) => {
     const r = FK.rng(seed);
     const seg = (px, py, a, len, wdt, depth) => {
       const pts = [[px, py]]; let X = px, Y = py;
       for (let d = 0; d < len; d += 7) { a += (r() - 0.5) * 0.55; X += Math.cos(a) * 7; Y += Math.sin(a) * 7; pts.push([X, Y]); if (depth < 3 && r() < 0.045) seg(X, Y, a + (r() < 0.5 ? -1 : 1) * (0.45 + r() * 0.6), len * (0.3 + r() * 0.35), wdt * 0.7, depth + 1); }
-      [[`rgba(94,138,171,${0.55})`, wdt + 1.4, 1.2], ['rgba(255,255,255,0.95)', wdt, 0]].forEach(([c, lw, off]) => { x.strokeStyle = c; x.lineWidth = lw; x.lineJoin = x.lineCap = 'round'; x.beginPath(); pts.forEach(([u, v], i) => (i ? x.lineTo(u + off, v + off) : x.moveTo(u + off, v + off))); x.stroke(); });
+      [['rgba(94,138,171,0.52)', wdt + 1.3, 1.1], ['rgba(255,255,255,0.95)', wdt, 0]].forEach(([c, lw, off]) => {
+        x.strokeStyle = c; x.lineWidth = lw; x.lineJoin = x.lineCap = 'round'; x.beginPath();
+        pts.forEach(([u, v], i) => (i ? x.lineTo(u + off, v + off) : x.moveTo(u + off, v + off))); x.stroke();
+      });
     };
     const cx = ox * w, cy = oy * h;
-    for (let i = 0; i < 7; i++) seg(cx, cy, (i / 7) * Math.PI * 2 + r() * 0.6, 160 + r() * 380, 1.6, 0);
-    x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, 10 + r() * 6, 0, Math.PI * 2); x.stroke();
+    for (let i = 0; i < 6; i++) seg(cx, cy, (i / 6) * Math.PI * 2 + r() * 0.6, 150 + r() * 320, 1.5, 0);
   });
   const crackMat = (tex, ox, oy) => new T.ShaderMaterial({
     uniforms: { map: { value: tex }, uK: { value: 0 }, uA: { value: 1 }, uO: { value: new T.Vector2(ox, 1 - oy) } },
     transparent: true, depthTest: false, depthWrite: false, side: T.DoubleSide,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform sampler2D map; uniform float uK, uA; uniform vec2 uO; varying vec2 vUv; float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); } void main(){ vec4 c = texture2D(map, vUv); float d = distance(vUv * vec2(0.78, 1.0), uO * vec2(0.78, 1.0)) + h(floor(vUv * 48.0)) * 0.05; float m = smoothstep(uK * 0.95 + 0.03, uK * 0.95 - 0.03, d) * step(0.001, uK); gl_FragColor = vec4(c.rgb, c.a * m * uA); }',
-  });
-  const glowMat = (col) => new T.ShaderMaterial({
-    uniforms: { uA: { value: 0.3 }, uC: { value: new T.Color(col) } }, transparent: true, depthTest: false, depthWrite: false, blending: T.AdditiveBlending,
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform float uA; uniform vec3 uC; varying vec2 vUv; void main(){ vec2 c = (vUv - 0.5) * vec2(1.0, 0.82); float a = exp(-dot(c, c) * 9.0) * uA; gl_FragColor = vec4(uC * a, 1.0); }',
+    fragmentShader: 'uniform sampler2D map; uniform float uK, uA; uniform vec2 uO; varying vec2 vUv; float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); } void main(){ vec4 c = texture2D(map, vUv); float d = distance(vUv * vec2(0.78, 1.0), uO * vec2(0.78, 1.0)) + h(floor(vUv * 48.0)) * 0.04; float m = smoothstep(uK * 0.95 + 0.03, uK * 0.95 - 0.03, d) * step(0.001, uK); gl_FragColor = vec4(c.rgb, c.a * m * uA); }',
   });
   const blobMat = (col, add) => new T.ShaderMaterial({
-    uniforms: { uA: { value: add ? 0 : 0.2 }, uC: { value: new T.Color(col) } }, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending,
+    uniforms: { uA: { value: add ? 0 : 0.16 }, uC: { value: new T.Color(col) } }, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform float uA; uniform vec3 uC; varying vec2 vUv; void main(){ vec2 c = (vUv - 0.5) * vec2(1.0, 1.6); float a = exp(-dot(c, c) * 12.0) * uA; gl_FragColor = vec4(uC * (' + (add ? 'a' : '1.0') + '), ' + (add ? '1.0' : 'a') + '); }',
+    fragmentShader: 'uniform float uA; uniform vec3 uC; varying vec2 vUv; void main(){ vec2 c = (vUv - 0.5) * vec2(1.0, 1.6); float a = exp(-dot(c, c) * 11.0) * uA; gl_FragColor = vec4(uC * (' + (add ? 'a' : '1.0') + '), ' + (add ? '1.0' : 'a') + '); }',
   });
-  const bubbleMat = () => new T.ShaderMaterial({
-    uniforms: { uA: { value: 1 }, uScale: { value: innerHeight } }, transparent: true, depthTest: false, depthWrite: false,
-    vertexShader: 'attribute float aR; uniform float uScale; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = (0.8 + aR * 2.2) * uScale / -mv.z * 0.02; vA = 0.25 + aR * 0.45; gl_Position = projectionMatrix * mv; }',
-    fragmentShader: 'uniform float uA; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; float ring = smoothstep(0.5, 0.36, d) * (0.45 + 0.55 * smoothstep(0.2, 0.42, d)); gl_FragColor = vec4(1.0, 1.0, 1.0, ring * vA * uA); }',
-  });
-
-  // Procedural micro-crystalline frost normal & roughness maps for genuine frosted glacial blocks
-  const pFrost = (() => {
-    const SZ = 256, hgt = new Float32Array(SZ * SZ);
-    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
-      const u = x / SZ, v = y / SZ;
-      hgt[y * SZ + x] = FK.fbm(u * 8, v * 8, 2.7, 4) * 0.65 + (FK.noise(u * 28, v * 28, 6.1) * 0.45 + FK.noise(u * 64, v * 64, 1.9) * 0.25) * 0.35;
-    }
-    const nC = document.createElement('canvas'); nC.width = nC.height = SZ;
-    const rC = document.createElement('canvas'); rC.width = rC.height = SZ;
-    const nX = nC.getContext('2d'), rX = rC.getContext('2d');
-    const nImg = nX.createImageData(SZ, SZ), rImg = rX.createImageData(SZ, SZ);
-    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
-      const xm = (x - 1 + SZ) % SZ, xp = (x + 1) % SZ, ym = (y - 1 + SZ) % SZ, yp = (y + 1) % SZ;
-      const dx = (hgt[y * SZ + xp] - hgt[y * SZ + xm]) * 3.0, dy = (hgt[yp * SZ + x] - hgt[ym * SZ + x]) * 3.0;
-      const inv = 1 / Math.hypot(dx, dy, 1), i = (y * SZ + x) * 4;
-      nImg.data[i] = Math.round((-dx * inv * 0.5 + 0.5) * 255); nImg.data[i + 1] = Math.round((-dy * inv * 0.5 + 0.5) * 255); nImg.data[i + 2] = Math.round((inv * 0.5 + 0.5) * 255); nImg.data[i + 3] = 255;
-      const rv = Math.round((0.18 + hgt[y * SZ + x] * 0.22) * 255);
-      rImg.data[i] = rImg.data[i + 1] = rImg.data[i + 2] = rv; rImg.data[i + 3] = 255;
-    }
-    nX.putImageData(nImg, 0, 0); rX.putImageData(rImg, 0, 0);
-    const nor = new T.CanvasTexture(nC), rgh = new T.CanvasTexture(rC);
-    [nor, rgh].forEach((tx) => { tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.repeat.set(2.2, 2.8); tx.anisotropy = 4; });
-    return { nor, rgh };
-  })();
-
-  const acgIceP = Promise.all([
-    ltex('assets/textures/acg/Ice003_2K-JPG_NormalGL.jpg', false, 2.2),
-    ltex('assets/textures/acg/Ice003_2K-JPG_Roughness.jpg', false, 2.2),
-  ]);
-  loadAll.push(acgIceP);
 
   const DEF = [
-    { key: 'sky', att: '#A9CBE3', ad: 2.4, rot: -0.24, crack: [0.8, 0.16], seed: 11 },
-    { key: 'echo', att: '#5E8AAB', ad: 1.8, rot: 0.24, crack: [0.2, 0.22], seed: 29 },
+    { key: 'sky', rot: -0.20, crack: [0.8, 0.16], seed: 11 },
+    { key: 'echo', rot: 0.20, crack: [0.2, 0.22], seed: 29 },
   ];
-    const B = DEF.map((d, i) => {
+  const B = DEF.map((d, i) => {
     const group = new T.Group(), widen = new T.Group(); group.add(widen); S.add(group);
     const mat = new T.MeshPhysicalMaterial({
-      color: new T.Color('#B8CEE0'),
-      transparent: true, opacity: 0.84, depthWrite: false,
-      roughness: 0.40, metalness: 0.03,
-      normalMap: pFrost.nor, normalScale: new T.Vector2(0.48, 0.48),
-      roughnessMap: pFrost.rgh,
-      clearcoat: 0.25, clearcoatRoughness: 0.32,
-      envMapIntensity: 0.82, reflectivity: 0.7,
+      color: new T.Color('#C4DCF0'),
+      transparent: true, opacity: 0.88, depthWrite: false,
+      roughness: 0.20, metalness: 0.03,
+      normalMap: pFrost.nor, normalScale: new T.Vector2(0.28, 0.28),
+      clearcoat: 0.65, clearcoatRoughness: 0.16,
+      envMapIntensity: 1.05, reflectivity: 0.85,
     });
-    acgIceP.then(([inor, irgh]) => {
-      if (inor && inor.image) mat.normalMap = inor;
-      if (irgh && irgh.image) mat.roughnessMap = irgh;
-      mat.needsUpdate = true;
-    });
-    // Single-pass frosted glacial ice (calibrated in LINEAR color space to exact Snow/Glacier/Ice-blue/Deep-ice palette)
     const u = { uH: { value: 0 }, uDim: { value: 0 } };
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, u);
@@ -361,77 +174,60 @@
       sh.fragmentShader = 'uniform float uH, uDim; varying vec3 vOP;\nfloat ph(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }\nfloat pn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mix(ph(i),ph(i+vec3(1,0,0)),f.x),mix(ph(i+vec3(0,1,0)),ph(i+vec3(1,1,0)),f.x),f.y),mix(mix(ph(i+vec3(0,0,1)),ph(i+vec3(1,0,1)),f.x),mix(ph(i+vec3(0,1,1)),ph(i+vec3(1,1,1)),f.x),f.y),f.z); }\n' + sh.fragmentShader.replace('#include <output_fragment>', [
         '{ vec3 nV = normalize(normal), vV = normalize(vViewPosition);',
         '  float ndv = clamp(abs(dot(nV, vV)), 0.0, 1.0);',
-        '  float bevel = pow(1.0 - ndv, 2.0);',
-        '  float schlick = 0.018 + 0.982 * pow(1.0 - ndv, 5.0);',
-        '  float low = smoothstep(0.45, -0.5, vOP.y);',
-        '  float frost = pn(vOP * 6.5) * 0.55 + pn(vOP * 19.0) * 0.45;',
-        '  vec3 beer = exp(-vec3(0.66, 0.42, 0.27) * (0.92 + (1.0 - ndv) * 1.15 + low * 0.35));',
-        '  vec3 iceCore = mix(vec3(0.22, 0.33, 0.44), vec3(0.54, 0.65, 0.76), smoothstep(0.2, 0.85, frost));',
-        '  vec3 darkEdge = vec3(0.06, 0.13, 0.21);',
-        '  vec3 col = outgoingLight * 0.48 * beer + iceCore * (0.38 + 0.14 * uH);',
-        '  col = mix(col, darkEdge, clamp(bevel * 0.66 + low * 0.20, 0.0, 0.85) * (1.0 - 0.16 * uH));',
-        '  col *= vec3(1.0 - 0.04 * schlick, 1.0 + 0.005 * schlick, 1.0 + 0.05 * schlick);',
-        '  float micro = pn(vOP * 38.0);',
-        '  float glint = pow(clamp(micro * (0.5 + 0.5 * bevel), 0.0, 1.0), 12.0) * (0.40 + 0.30 * uH);',
-        '  col += vec3(0.80, 0.87, 0.94) * (schlick * 0.44 + glint + uH * 0.07 * (1.0 - bevel));',
-        '  col = mix(col, col * vec3(0.78, 0.82, 0.86) + vec3(0.18, 0.20, 0.22), uDim * 0.65);',
+        '  float bevel = pow(1.0 - ndv, 1.85);',
+        '  float schlick = 0.025 + 0.975 * pow(1.0 - ndv, 4.2);',
+        '  float frost = pn(vOP * 5.0) * 0.6 + pn(vOP * 14.0) * 0.4;',
+        '  vec3 bodyTint = mix(vec3(0.36, 0.54, 0.70), vec3(0.72, 0.83, 0.91), smoothstep(0.18, 0.84, frost));',
+        '  vec3 deepEdge = vec3(0.12, 0.25, 0.39);',
+        '  vec3 col = outgoingLight * 0.48 + bodyTint * (0.40 + 0.14 * uH);',
+        '  col = mix(col, deepEdge, bevel * 0.56 * (1.0 - 0.15 * uH));',
+        '  col += vec3(0.96, 0.985, 1.0) * (schlick * 0.60 + uH * 0.07);',
+        '  col = mix(col, col * vec3(0.84, 0.87, 0.90) + vec3(0.14, 0.16, 0.18), uDim * 0.55);',
         '  outgoingLight = col;',
-        '  diffuseColor.a = clamp(diffuseColor.a + bevel * 0.12 + frost * 0.05 - uDim * 0.18, 0.56, 0.96); }',
+        '  diffuseColor.a = clamp(diffuseColor.a + bevel * 0.14 - uDim * 0.18, 0.62, 0.96); }',
         '#include <output_fragment>'].join('\n'));
     };
-    mat.customProgramCacheKey = () => 'proj-ice-frost-lin2';
+    mat.customProgramCacheKey = () => 'proj-ice-studio-v4';
     const mesh = new T.Mesh(blockGeo, mat); mesh.userData.i = i; mesh.renderOrder = 1; widen.add(mesh);
-    const glow = new T.Mesh(new T.PlaneGeometry(1.25, 1.4), glowMat('#A9CBE3')); glow.position.z = -0.15; glow.renderOrder = 0; group.add(glow);
     const etchT = textCanvas(624, 800, (x, w, h) => { x.save(); x.scale(w / 780, h / 1000); etchDraw[d.key](x, 780, 1000); x.restore(); });
-    const text = new T.Mesh(new T.PlaneGeometry(0.64, 0.82), new T.MeshBasicMaterial({ map: etchT, transparent: true, depthTest: false, depthWrite: false, fog: false, opacity: 0.92 }));
+    const text = new T.Mesh(new T.PlaneGeometry(0.64, 0.82), new T.MeshBasicMaterial({ map: etchT, transparent: true, depthTest: false, depthWrite: false, fog: false, opacity: 0.94 }));
     text.position.z = 0.02; text.renderOrder = 4; group.add(text);
     const ck = crackMat(crackTex(d.seed, d.crack[0], d.crack[1]), d.crack[0], d.crack[1]);
     const crack = new T.Mesh(new T.PlaneGeometry(ASP * 0.97, 0.97), ck); crack.position.z = DEP / 2 - 0.012; crack.renderOrder = 5; widen.add(crack);
-    const crack2 = new T.Mesh(crack.geometry, ck); crack2.position.z = -DEP / 2 + 0.03; crack2.scale.x = -1; crack2.renderOrder = 2; widen.add(crack2);
-    const BN = 90, bp = new Float32Array(BN * 3), br = new Float32Array(BN);
-    for (let k = 0; k < BN; k++) { bp.set([(rnd() - 0.5) * ASP * 0.86, (rnd() - 0.5) * 0.92, (rnd() - 0.5) * DEP * 0.7], k * 3); br[k] = rnd(); }
-    const bg2 = new T.BufferGeometry(); bg2.setAttribute('position', new T.BufferAttribute(bp, 3)); bg2.setAttribute('aR', new T.BufferAttribute(br, 1));
-    const bubbles = new T.Points(bg2, bubbleMat()); bubbles.renderOrder = 3; widen.add(bubbles);
-    const light = new T.PointLight(0xA9CBE3, 1.5, 6, 2); group.add(light);
+    const light = new T.PointLight(0xA9CBE3, 1.2, 6, 2); group.add(light);
     const shadow = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat('#5E8AAB', false)); S.add(shadow);
     const pool = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat('#A9CBE3', true)); pool.position.y = 0.01; S.add(pool);
-    return { i, d, u, group, widen, mesh, mat, glow, text, etchT, crack: ck, bubbles, light, shadow, pool, base: V(0, 0, 0), sc: 1, st: { h: 0, dim: 0 }, href: links[i].getAttribute('href'), ph: i * 2.1 };
+    return { i, d, u, group, widen, mesh, mat, text, etchT, crack: ck, light, shadow, pool, base: V(0, 0, 0), sc: 1, st: { h: 0, dim: 0 }, href: links[i].getAttribute('href'), ph: i * 2.1 };
   });
 
-  // ---------- layout: the canvas is fixed behind the whole page; each block sits where its link's empty space is on screen ----------
-  const D = 13.03, PITCH0 = -0.073;
+  const D = 13.03, PITCH0 = -0.068;
   let W = 1, H = 1, FOV = 32, scrollK = 0;
-  const LOOK = V(0, 0, 0), LC = new T.PerspectiveCamera(32, 1, 0.1, 700);
-  // scroll glides the camera forward and a little down over the valley, so the world drifts behind the text below the stage
-  const camPose = (k, cam) => { const pitch = PITCH0 - 0.055 * k; cam.position.set(0, 1.5 + 0.6 * k, 13 - 5 * k); LOOK.set(0, Math.sin(pitch), -Math.cos(pitch)).multiplyScalar(D).add(cam.position); cam.lookAt(LOOK); cam.updateMatrixWorld(); };
-  const toPlane = (cam, cx, cy, out) => { const f = cam.getWorldDirection(tmpF), dir = V(cx / W * 2 - 1, -(cy / H * 2 - 1), 0.5).unproject(cam).sub(cam.position).normalize(); return out.copy(cam.position).addScaledVector(dir, D / dir.dot(f)); };
+  const LOOK = V(0, 0, 0), LC = new T.PerspectiveCamera(32, 1, 0.1, 400);
+  const camPose = (k, cam) => { const pitch = PITCH0 - 0.05 * k; cam.position.set(0, 1.5 + 0.55 * k, 13 - 4.5 * k); LOOK.set(0, Math.sin(pitch), -Math.cos(pitch)).multiplyScalar(D).add(cam.position); cam.lookAt(LOOK); cam.updateMatrixWorld(); };
   const tmpF = V(0, 0, 0);
+  const toPlane = (cam, cx, cy, out) => { const f = cam.getWorldDirection(tmpF), dir = V(cx / W * 2 - 1, -(cy / H * 2 - 1), 0.5).unproject(cam).sub(cam.position).normalize(); return out.copy(cam.position).addScaledVector(dir, D / dir.dot(f)); };
   const sizeOf = (s) => Math.max(40, Math.min(s.height * 0.86, s.width * 0.9 / (ASP * 1.12))) * 2 * D * Math.tan(T.MathUtils.degToRad(FOV) / 2) / H;
   const place = (cam) => { B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(); toPlane(cam, s.left + s.width / 2, s.top + s.height / 2, b.base); b.sc = sizeOf(s); b.light.distance = b.sc * 2.6; }); };
   const layout = () => {
     W = Math.max(1, cv.clientWidth); H = Math.max(1, cv.clientHeight);
-    R.setPixelRatio(DPR()); R.setSize(W, H, false); comp.setPixelRatio(DPR()); comp.setSize(W, H);
-    grade.uniforms.uRes.value.set(W, H); bloom.resolution.set(Math.max(64, W >> 2), Math.max(64, H >> 2));
+    R.setPixelRatio(DPR()); R.setSize(W, H, false);
     FOV = W / H < 0.9 ? 40 : 32; [C, LC].forEach((c) => { c.fov = FOV; c.aspect = W / H; c.updateProjectionMatrix(); });
-    // the ground sits under the blocks as they rest at the top of the page
     camPose(0, LC); let low = Infinity, avg = 0; const pts = [];
-    B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(), p = toPlane(LC, s.left + s.width / 2, s.top + scrollY + s.height / 2, V(0, 0, 0)), sc = sizeOf(s); pts.push([p, sc]); low = Math.min(low, p.y - sc / 2); avg += sc / B.length; b.bubbles.material.uniforms.uScale.value = H; });
-    const gy = low - avg * 0.42; ground.position.y = gy; mtns.position.y = gy; banks.position.y = gy; mtnU.uGy.value = gy;
+    B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(), p = toPlane(LC, s.left + s.width / 2, s.top + scrollY + s.height / 2, V(0, 0, 0)), sc = sizeOf(s); pts.push([p, sc]); low = Math.min(low, p.y - sc / 2); avg += sc / B.length; });
+    const gy = low - avg * 0.42; ground.position.y = gy;
     B.forEach((b, i) => { [b.shadow, b.pool].forEach((m, j) => { m.position.set(pts[i][0].x, gy + 0.01 + j * 0.01, pts[i][0].z); m.scale.set(pts[i][1] * 1.5, 1, pts[i][1] * 0.9); }); });
-    snowU.uScale.value = H;
   };
   window.addEventListener('resize', layout);
   if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(document.body);
   layout();
 
-  // ---------- hover: pointer raycast over the stage, plus hover and focus on the real links ----------
   let rayHit = -1, linkHover = -1, focusI = -1, active = -2;
   const ray = new T.Raycaster(), ndc = new T.Vector2();
   const setActive = (i) => {
     if (i === active) return; active = i;
     if (i >= 0) S0.click && S0.click();
     B.forEach((b, j) => {
-      gsap.to(b.st, { h: j === i ? 1 : 0, dim: i >= 0 && j !== i ? 1 : 0, duration: rm ? 0 : (j === i ? 1.1 : 0.8), ease: 'expo.out', overwrite: true });
+      gsap.to(b.st, { h: j === i ? 1 : 0, dim: i >= 0 && j !== i ? 1 : 0, duration: rm ? 0 : (j === i ? 0.9 : 0.7), ease: 'expo.out', overwrite: true });
       links[j].classList.toggle('on', j === i); links[j].classList.toggle('dim', i >= 0 && j !== i);
     });
   };
@@ -450,10 +246,8 @@
     a.addEventListener('blur', () => { if (focusI === i) focusI = -1; pick(); });
     a.addEventListener('click', (e) => { if (rm || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); fly(i); });
   });
-  // a click on a block outside its link area still chooses it
   stage.addEventListener('click', (e) => { if (rm || flying || rayHit < 0 || e.target.closest('a')) return; fly(rayHit); });
 
-  // ---------- choosing a block: the camera flies into it, a white flash, then the project page ----------
   let flying = false; const fl = { p: 0, i: -1, from: V(0, 0, 0), look: V(0, 0, 0), end: V(0, 0, 0), aim: V(0, 0, 0) };
   function fly(i) {
     if (flying) return; flying = true; setActive(i);
@@ -461,81 +255,70 @@
     const dir = b.group.position.clone().sub(C.position).normalize();
     fl.end.copy(b.group.position).addScaledVector(dir, b.sc * DEP * 0.2); fl.aim.copy(b.group.position).addScaledVector(dir, 8);
     const o = { p: 0 };
-    gsap.to(o, { p: 1, duration: 1.25, ease: 'power3.inOut', onUpdate: () => { fl.p = o.p; }, onComplete: () => { location.href = b.href; } });
-    if (flashEl) gsap.to(flashEl, { opacity: 1, duration: 0.4, delay: 0.88, ease: 'power3.in' });
+    gsap.to(o, { p: 1, duration: 0.85, ease: 'power3.inOut', onUpdate: () => { fl.p = o.p; }, onComplete: () => { location.href = b.href; } });
+    if (flashEl) gsap.to(flashEl, { opacity: 1, duration: 0.35, delay: 0.52, ease: 'power3.in' });
   }
   window.addEventListener('pageshow', (e) => { if (!e.persisted) return; flying = false; fl.p = 0; fl.i = -1; if (flashEl) gsap.set(flashEl, { opacity: 0 }); active = -2; setActive(-1); });
 
-  // ---------- loop (uncapped native refresh rate 60Hz-240Hz, pure delta-time, paused while hidden) ----------
-  let visible = !document.hidden, last = 0, prevScrollK = 0, blurS = 0; const t0 = performance.now();
+  let visible = !document.hidden, last = 0; const t0 = performance.now();
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
   const mouse = new T.Vector2(), mt = new T.Vector2();
   window.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') mt.set(e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1); }, { passive: true });
-  const look = V(0, 0, 0), tmp = V(0, 0, 0), sunP = V(0, 0, 0), fwd = V(0, 0, 0);
+  const look = V(0, 0, 0), tmp = V(0, 0, 0);
+
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible) { last = now; return; }
     if (!rm && last) {
-      if (++gov.n > 20) {
-        gov.ema = gov.ema * 0.88 + Math.min(now - last, 80) * 0.12;
-        if (gov.n % 15 === 0) {
-          const q = gov.ema > 22 ? Math.max(0.75, gov.q * 0.9) : gov.ema < 17.5 ? Math.min(1, gov.q + 0.08) : gov.q;
+      if (++gov.n > 30) {
+        gov.ema = gov.ema * 0.9 + Math.min(now - last, 80) * 0.1;
+        if (gov.n % 30 === 0) {
+          const minQ = Math.min(1, 1 / Math.max(1, Math.min(window.devicePixelRatio || 1, 2)));
+          const q = gov.ema > 24 ? Math.max(minQ, gov.q - 0.1) : gov.ema < 16 ? Math.min(1, gov.q + 0.08) : gov.q;
           if (q !== gov.q) { gov.q = q; layout(); }
         }
       }
     }
-    const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now; const t = rm ? 0 : (now - t0) / 1000, idle = rm ? 0 : 1;
+    const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now;
+    const t = rm ? 0 : (now - t0) / 1000, idle = rm ? 0 : 1;
     mouse.lerp(mt, 1 - Math.exp(-dt * 3.8));
-    // camera: smooth window-like pointer parallax and breathing, or the flight
-    let targetBlur = 0;
+
     if (flying) {
       const p = fl.p, e2 = ss(0, 0.7, p);
       C.position.lerpVectors(fl.from, fl.end, p);
       look.lerpVectors(fl.look, fl.aim, e2); C.lookAt(look);
-      C.fov = FOV * (1 - 0.12 * ss(0, 0.5, p) + 0.75 * Math.pow(ss(0.45, 1, p), 2)); C.updateProjectionMatrix();
-      grade.uniforms.uFlash.value = ss(0.55, 1, p);
-      targetBlur = rm ? 0 : Math.sin(Math.min(1, p) * Math.PI) * 0.9;
-      S.fog.density = FOG_D + (fl.i === 0 ? 0.06 : 0.025) * ss(0.4, 1, p);
+      C.fov = FOV * (1 - 0.10 * ss(0, 0.5, p) + 0.65 * Math.pow(ss(0.45, 1, p), 2)); C.updateProjectionMatrix();
+      S.fog.density = FOG_D + (fl.i === 0 ? 0.05 : 0.02) * ss(0.4, 1, p);
     } else {
-      prevScrollK = scrollK;
       scrollK = Math.min(2.5, Math.max(0, scrollY / Math.max(1, innerHeight)));
-      targetBlur = rm ? 0 : Math.min(0.45, Math.abs(scrollK - prevScrollK) / dt * 0.12);
       camPose(scrollK, C); place(C);
-      C.position.add(tmp.set(mouse.x * 0.48 * idle + Math.sin(t * 0.3) * 0.05 * idle, -mouse.y * 0.28 * idle + Math.sin(t * 0.45) * 0.04 * idle, 0));
-      C.lookAt(LOOK); grade.uniforms.uFlash.value = 0; S.fog.density = FOG_D;
+      C.position.add(tmp.set(mouse.x * 0.35 * idle + Math.sin(t * 0.25) * 0.04 * idle, -mouse.y * 0.20 * idle + Math.sin(t * 0.35) * 0.03 * idle, 0));
+      C.lookAt(LOOK); S.fog.density = FOG_D;
     }
-    blurS += (targetBlur - blurS) * (1 - Math.exp(-dt * 10));
-    grade.uniforms.uBlur.value = blurS;
-    // god rays follow the sun on screen and fade as it leaves the frame
-    sunP.copy(C.position).addScaledVector(SUN, 500).project(C);
-    const off = Math.max(Math.abs(sunP.x) - 1, Math.abs(sunP.y) - 1, 0), front = C.getWorldDirection(fwd).dot(SUN) > 0;
-    rays.uniforms.uSun.value.set(sunP.x * 0.5 + 0.5, sunP.y * 0.5 + 0.5); rays.uniforms.uAmt.value = front ? 0.26 * (1 - ss(0, 0.6, off)) : 0;
-    bankU.uT.value = t;
-    // blocks: float, turn a little toward the pointer when hovered, widen, glow, crack, dim
+    sky.position.copy(C.position);
+
     B.forEach((b) => {
       const { h, dim } = b.st, fp = flying && fl.i === b.i ? fl.p : 0, fo = flying && fl.i !== b.i ? ss(0, 0.5, fl.p) : 0;
-      b.group.position.copy(b.base); b.group.position.y += Math.sin(t * 0.6 + b.ph) * 0.06 * b.sc * idle; b.group.position.z -= dim * 0.5 * b.sc;
-      b.group.rotation.set(Math.sin(t * 0.4 + b.ph) * 0.025 * idle, b.d.rot * (1 - 0.5 * h) + Math.sin(t * 0.25 + b.ph) * 0.08 * idle + mouse.x * 0.14 * h * idle, Math.sin(t * 0.33 + b.ph) * 0.015 * idle);
-      b.group.scale.setScalar(b.sc * (1 - 0.04 * dim));
-      b.widen.scale.x = 1 + 0.12 * h;
-      b.glow.material.uniforms.uA.value = (0.06 + 0.26 * h - 0.05 * dim) * (1 - ss(0.5, 0.9, fp)) * (1 - fo);
-      b.light.intensity = (1.2 + 5.5 * h - 0.9 * dim) * (b.sc / 3); b.light.position.set(0, -0.1, 0);
-      b.text.material.opacity = (0.92 - 0.5 * dim) * (1 - ss(0.45, 0.75, fp)) * (1 - fo);
+      b.group.position.copy(b.base); b.group.position.y += Math.sin(t * 0.5 + b.ph) * 0.05 * b.sc * idle; b.group.position.z -= dim * 0.45 * b.sc;
+      b.group.rotation.set(Math.sin(t * 0.35 + b.ph) * 0.02 * idle, b.d.rot * (1 - 0.55 * h) + Math.sin(t * 0.2 + b.ph) * 0.06 * idle + mouse.x * 0.12 * h * idle, Math.sin(t * 0.28 + b.ph) * 0.012 * idle);
+      b.group.scale.setScalar(b.sc * (1 - 0.035 * dim));
+      b.widen.scale.x = 1 + 0.10 * h;
+      b.light.intensity = (1.0 + 3.5 * h - 0.6 * dim) * (b.sc / 3); b.light.position.set(0, -0.1, 0);
+      b.text.material.opacity = (0.94 - 0.48 * dim) * (1 - ss(0.45, 0.75, fp)) * (1 - fo);
       b.crack.uniforms.uK.value = h; b.crack.uniforms.uA.value = (1 - dim) * (1 - fo);
-      b.bubbles.material.uniforms.uA.value = 1 - 0.6 * dim;
-      b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.2 * h - 0.3 * dim); b.u.uH.value = h; b.u.uDim.value = dim;
-      const near = 1 - ss(0.1, 0.6, scrollK); b.shadow.material.uniforms.uA.value = (0.2 + 0.06 * h - 0.06 * dim) * near; b.pool.material.uniforms.uA.value = (0.05 + 0.4 * h) * near;
+      b.mat.envMapIntensity = 0.95 + 0.35 * h - 0.35 * dim; b.u.uH.value = h; b.u.uDim.value = dim;
+      const near = 1 - ss(0.1, 0.6, scrollK);
+      b.shadow.material.uniforms.uA.value = (0.16 + 0.05 * h - 0.05 * dim) * near;
+      b.pool.material.uniforms.uA.value = (0.04 + 0.25 * h) * near;
     });
-    grade.uniforms.uT.value = t;
-    if (SN) { snowU.uT.value = t; snowU.uCam.value.copy(C.position); snowU.uWind.value = 1 + (flying ? fl.p * 6 : 0); }
-    comp.render(dt);
+    R.render(S, C);
   }
 
-  // fonts first, so the etched awards use Unbounded and Geist Mono
-  const fontsReady = (document.fonts ? Promise.all([document.fonts.load('600 64px Unbounded'), document.fonts.load('700 64px Unbounded'), document.fonts.load('500 24px "Geist Mono"')]).catch(() => {}) : Promise.resolve())
-    .then(() => { B.forEach((b) => b.etchT.userData.redraw()); layout(); });
-  loadAll.push(fontsReady);
-  window.__proj = { S, C, B, ground, R, rays, bloom, sky, mtns, banks, comp };
-  S0.boot(Promise.all(loadAll), () => { layout(); R.compile(S, C); });
+  if (document.fonts) {
+    Promise.all([document.fonts.load('600 64px Unbounded'), document.fonts.load('700 64px Unbounded'), document.fonts.load('500 24px "Geist Mono"')]).catch(() => {})
+      .then(() => { B.forEach((b) => b.etchT.userData.redraw()); layout(); });
+  }
+  window.__proj = { S, C, B, ground, R, sky, gov };
+  S0.boot(Promise.resolve(), () => { layout(); });
   requestAnimationFrame(frame);
 })();

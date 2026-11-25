@@ -23,7 +23,8 @@
 .bs{font-family:var(--bs);font-weight:800;text-transform:uppercase;letter-spacing:-.005em;line-height:.86;margin:0}
 
 /* ---------- the film ---------- */
-.film{height:3000vh;background:transparent}
+.film{height:1100vh;background:transparent}
+@media (max-width:760px){.film{height:900vh}}
 .stage{background:transparent}
 .stage canvas.frames{z-index:0;display:none}.stage.frames canvas.frames{display:block}
 body{background-color:#05080c}
@@ -34,8 +35,8 @@ body{background-color:#05080c}
 .stage .chapter{z-index:4;display:flex;gap:14px;align-items:center;top:88px;padding:6px 12px;border-radius:999px;background:rgba(5,8,12,.58);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#EAF2F8;text-shadow:0 1px 6px rgba(0,0,0,.65);transition:opacity .6s var(--ease)}
 .stage .chapter b{font-weight:500;color:#fff}
 .stage .progress{z-index:5;top:auto;bottom:0}
-.tele{position:absolute;right:var(--pad);top:88px;z-index:4;padding:8px 12px;border-radius:10px;background:rgba(5,8,12,.58);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-align:right;color:#EAF2F8;text-shadow:0 1px 6px rgba(0,0,0,.65);opacity:0;transition:opacity .6s var(--ease);line-height:1.8}
-.tele.on{opacity:1}.tele span{display:block}
+.tele{position:absolute;right:var(--pad);top:88px;z-index:4;padding:8px 12px;border-radius:10px;background:rgba(5,8,12,.58);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-align:right;color:#EAF2F8;text-shadow:0 1px 6px rgba(0,0,0,.65);opacity:0;visibility:hidden;transition:opacity .22s var(--ease),visibility .22s;line-height:1.8}
+.tele.on{opacity:1;visibility:visible}.tele span{display:block}
 .cap{position:absolute;left:var(--pad);bottom:max(21%,168px);z-index:4;max-width:min(720px,86vw);opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform 1.1s var(--ease);pointer-events:none}
 .cap.on{opacity:1;transform:none}
 .cap .t{display:block;font-size:clamp(52px,7.6vw,128px);color:#fff;text-shadow:0 8px 50px rgba(0,0,0,.45)}
@@ -54,7 +55,7 @@ body{background-color:#05080c}
 .hp svg{width:16px;height:16px}
 .skipf{font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#fff;padding:14px 0}
 /* tower panels: the Gemini report types out, then the Solana stamp lands */
-.report{position:absolute;right:var(--pad);top:132px;z-index:4;width:min(400px,86vw);padding:20px 22px 18px;border-radius:16px;background:rgba(8,13,19,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.12);color:#E7EEF4;opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .9s var(--ease)}
+.report{position:absolute;right:var(--pad);top:132px;z-index:4;width:min(400px,86vw);padding:20px 22px 18px;border-radius:16px;background:rgba(7,12,18,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(169,203,227,.22);color:#F4F7FA;opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .9s var(--ease)}
 .report.on{opacity:1;transform:none}
 .report .hd{display:flex;justify-content:space-between;gap:12px;font:500 10.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:rgba(234,242,248,.6);padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1)}
 .report .hd i{font-style:normal;color:#fff}
@@ -159,15 +160,13 @@ body{background-color:#05080c}
 <body data-base="light" data-wind="off">
 <a class="skip" href="#main">Skip to content</a>
 <div class="pre" role="status" aria-label="Loading">
-  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
-    <g><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-  </svg>
-  <span class="count">000</span><span class="tag hud">Sky Sentry · HackPHS 2026</span>
+  <img class="pre-bg" src="assets/loading-mountain.webp" alt="" width="1600" height="900" fetchpriority="high">
+  <div class="pre-veil" aria-hidden="true"></div>
+  <div class="pre-in">
+    <div class="pre-row"><span class="pre-name">Sky Sentry</span><span class="count">000</span></div>
+    <div class="pre-bar" aria-hidden="true"><i></i></div>
+    <div class="pre-meta"><span>Runway 27 · Approach Film</span><span>HackPHS 2026</span></div>
+  </div>
 </div>
 <div class="flash" aria-hidden="true"></div>
 
@@ -340,7 +339,7 @@ body{background-color:#05080c}
 </main>
 <footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html">Credits</a></footer>
 
-<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/vendor/three-bundle.js"></script><script src="js/kit.js"></script><script src="js/film.js"></script>
 <script src="js/sky.js"></script>

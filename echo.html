@@ -39,7 +39,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .warnbox p{margin:12px 0 0;font-size:15.5px;line-height:1.55;color:var(--ink)}
 .warnbox .btns{margin-top:18px}.warnbox .btn{min-height:46px;font-size:14px;padding:0 20px}
 /* film: a tall scroll track; the overlay is sticky, the canvas is the fixed backdrop */
-.film{position:relative;z-index:2;height:1500vh}
+.film{position:relative;z-index:2;height:750vh}
 .ovl2{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;pointer-events:none;color:var(--pale)}
 .ovl2 canvas.frames{position:absolute;inset:0;width:100%;height:100%;display:none;z-index:0;pointer-events:none}
 .ovl2.descent-film canvas.frames{display:block}
@@ -74,7 +74,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .ovl2.lit .warnline{color:var(--ink)}
 .ovl2 .loading{position:absolute;inset:0;display:grid;place-items:center;font:500 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink);transition:opacity .6s}
 .ovl2 .loading.off{opacity:0}
-@media (max-width:760px){.ovl2 .warnline{display:none}.ovl2 .chapters{top:76px;gap:10px}.ovl2 .chapters span{display:none}.ovl2 .chapters span.on{display:inline}.ovl2 .sonar-hud{top:72px;padding:7px 10px;font-size:10px;line-height:1.5}.ovl2 .sonar-hud .sh-tip{display:none}.ping{width:76px;height:76px;bottom:40px}.cap{bottom:24%}.ovl2 .hint{bottom:128px}.film{height:1300vh}}
+@media (max-width:760px){.ovl2 .warnline{display:none}.ovl2 .chapters{top:76px;gap:10px}.ovl2 .chapters span{display:none}.ovl2 .chapters span.on{display:inline}.ovl2 .sonar-hud{top:72px;padding:7px 10px;font-size:10px;line-height:1.5}.ovl2 .sonar-hud .sh-tip{display:none}.ping{width:76px;height:76px;bottom:40px}.cap{bottom:24%}.ovl2 .hint{bottom:128px}.film{height:650vh}}
 .js-off .film{height:auto}.js-off .ovl2{position:relative;height:auto;padding:40px var(--pad)}.js-off .cap{position:relative;left:auto;transform:none;opacity:1;width:auto;margin:20px 0;text-align:left}.js-off .ping,.js-off .ovl2 .loading{display:none}
 /* after the film: dark frosted panels over the mine backdrop */
 .after{position:relative;z-index:2;color:var(--pale)}
@@ -134,15 +134,13 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 <body class="echo" data-base="light" data-wind="off">
 <a class="skip" href="#how">Skip the scene, go to how Echo works</a>
 <div class="pre" role="status" aria-label="Loading">
-  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
-    <g><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
-  </svg>
-  <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
+  <img class="pre-bg" src="assets/loading-mountain.webp" alt="" width="1600" height="900" fetchpriority="high">
+  <div class="pre-veil" aria-hidden="true"></div>
+  <div class="pre-in">
+    <div class="pre-row"><span class="pre-name">Echo</span><span class="count">000</span></div>
+    <div class="pre-bar" aria-hidden="true"><i></i></div>
+    <div class="pre-meta"><span>The Hollow · Sonar Descent</span><span>Hack Haven Princeton 2026</span></div>
+  </div>
 </div>
 <div class="flash" aria-hidden="true"></div>
 
@@ -298,7 +296,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 </main>
 <footer class="foot hud dkf" data-tone="dark"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html">Credits</a></footer>
 
-<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/vendor/three-bundle.js"></script><script src="js/kit.js"></script><script src="js/film.js"></script>
 <script src="js/echo.js"></script>

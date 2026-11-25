@@ -69,7 +69,7 @@
     const g = FK.gradePass(); c.addPass(g);
     return { c, bloom: bp, grade: g };
   };
-  // quality governor: frame-time EMA adjusts pixel ratio
+  // quality governor: frame-time EMA adjusts pixel ratio (never drops below 1.0 DPR so scenes stay razor-sharp)
   FK.governor = (renderer, composer, getSize) => {
     const g = { q: 1, ema: 16, last: 0, max: Math.min(window.devicePixelRatio || 1, 2) };
     g.tick = (now) => {
@@ -78,12 +78,13 @@
       g.frames = (g.frames || 0) + 1;
       if (g.frames % 40 === 0) {
         let nq = g.q;
-        if (g.ema > 24 && g.q > 0.5) nq = g.q - 0.1; else if (g.ema < 15 && g.q < 1) nq = g.q + 0.05;
+        const minQ = Math.min(1, 1 / Math.max(1, g.max));
+        if (g.ema > 26 && g.q > minQ) nq = Math.max(minQ, g.q - 0.1); else if (g.ema < 16 && g.q < 1) nq = Math.min(1, g.q + 0.05);
         if (nq !== g.q) { g.q = nq; g.apply(); }
       }
     };
     g.apply = () => {
-      const pr = Math.max(0.6, g.max * g.q); const s = getSize();
+      const pr = Math.max(1.0, g.max * g.q); const s = getSize();
       renderer.setPixelRatio(pr); renderer.setSize(s[0], s[1], false);
       composer.setPixelRatio(pr); composer.setSize(s[0], s[1]);
     };

@@ -38,13 +38,13 @@
   }
 
   // ---------- renderer, scene, post ----------
-  const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping; R.setClearColor(0x000000, 1);
   const S = new T.Scene(), C = new T.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 420);
   const SKY = new T.Color('#DCE6EE'), BLACK = new T.Color(0), DEEPICE = new T.Color('#1B3346');
   S.background = SKY.clone(); S.fog = new T.FogExp2(SKY.clone(), 0.012);
-  const P = FK.composer(R, S, C, [0.55, 0.6, 0.9]), G = P.grade.uniforms;
-  G.uGrain.value = 0.06; G.uCA.value = 0.0018;
+  const P = FK.composer(R, S, C, [0.42, 0.45, 0.92]), G = P.grade.uniforms;
+  G.uGrain.value = 0.02; G.uCA.value = 0.0009;
   const size = () => [Math.max(2, innerWidth), Math.max(2, innerHeight)];
   const gov = FK.governor(R, P.c, size); gov.max = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2);
   const bufSize = new T.Vector2();
@@ -706,7 +706,7 @@
     } else {
       world.DU.uT.value = t; world.DU.uScale.value = bufSize.y; world.DU.uCam.value.copy(C.position);
       const wantMirror = world.water && Math.abs(camS - (S_FLOOD0 + S_FLOOD1) / 2) < 42 && camS < S_FLOOD1 + 2 && blk < 0.99;
-      world.WU.uMirOn.value = wantMirror ? 1 : 0; if (wantMirror && (snap || (frameN % 2 === 0))) renderMirror();
+      world.WU.uMirOn.value = wantMirror ? 1 : 0; if (wantMirror && (snap || (frameN % 3 === 0))) renderMirror();
       frameN++;
       P.c.render(dt);
     }
