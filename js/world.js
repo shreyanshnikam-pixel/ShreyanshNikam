@@ -14,7 +14,7 @@
   const bgC = document.createElement('canvas'); bgC.width = 512; bgC.height = 512;
   { const g = bgC.getContext('2d'), gr = g.createRadialGradient(256, 150, 20, 256, 230, 420); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.45, '#F4F7FA'); gr.addColorStop(1, '#DCE6EE'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512); }
   const bg = new T.CanvasTexture(bgC); bg.encoding = T.sRGBEncoding; S.background = bg; /* replaced by the sky dome once built */
-  const FOG_SNOW = new T.Color('#D3E0EB'), FOG_WATER = new T.Color('#3C88A6');
+  const FOG_SNOW = new T.Color('#C4D5E3'), FOG_WATER = new T.Color('#3C88A6');
   S.fog = new T.FogExp2(FOG_SNOW.clone(), 0.008);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
@@ -33,7 +33,8 @@
       '  vec3 col = vec3(texture2D(tDiffuse, vUv + o).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - o).b);',
       '  col = mix(col, col * vec3(0.55, 0.85, 0.95) + vec3(0.0, 0.03, 0.05), uWater);',
       '  col = knee(col); col = pow(max(col, 0.0), vec3(1.0/2.2));',
-      '  col *= mix(1.0, smoothstep(1.3, 0.2, r2*1.6), 0.35);',
+      '  col = mix(col, col*col*(3.0-2.0*col), 0.35); col *= vec3(0.97, 0.99, 1.03);',
+      '  col *= mix(1.0, smoothstep(1.3, 0.2, r2*1.6), 0.55);',
       '  float m = fbm(vUv * vec2(uRes.x/uRes.y, 1.0) * 3.0 + uT * 0.15);',
       '  float w = smoothstep(m - 0.18, m + 0.18, uFlash * 1.25); col = mix(col, vec3(1.0), w);',
       '  col += (h(vUv * uRes + fract(uT*7.1)*100.0) - 0.5) * 0.035;',
@@ -49,7 +50,7 @@
   const sun = new T.DirectionalLight(0xffffff, 2.4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 }); sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
   S.add(sun); S.add(sun.target);
-  S.add(new T.HemisphereLight(0xf4f8ff, 0xcbd8e4, 0.9));
+  S.add(new T.HemisphereLight(0x8fb0cc, 0x7f98ad, 0.55));
   const pm = new T.PMREMGenerator(R);
   loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())));
   const TL = new T.TextureLoader();
@@ -137,7 +138,7 @@
       'vec3 lin(vec3 c){ return pow(c, vec3(2.2)); }',
       'void main(){ vec3 d = normalize(vD); float y = d.y;',
       '  vec3 zen = lin(vec3(0.24, 0.38, 0.52)), mid = lin(vec3(0.55, 0.69, 0.80)), hor = lin(vec3(0.86, 0.91, 0.95));',
-      '  vec3 col = mix(hor, mid, smoothstep(0.0, 0.18, y)); col = mix(col, zen, smoothstep(0.18, 0.75, y));',
+      '  vec3 col = mix(hor, mid, smoothstep(-0.01, 0.07, y)); col = mix(col, zen, smoothstep(0.07, 0.4, y));',
       '  float s = max(dot(d, uSun), 0.0); col += lin(vec3(1.0, 0.97, 0.92)) * (pow(s, 600.0) * 6.0 + pow(s, 24.0) * 0.35 + pow(s, 4.0) * 0.12);',
       '  vec2 uv = d.xz / max(y + 0.12, 0.05); float c = fb(uv * 1.3 + vec2(uT * 0.004, 0.0)); float c2 = fb(uv * 3.1 - vec2(uT * 0.006, uT * 0.002));',
       '  float cl = smoothstep(0.48, 0.78, c * 0.7 + c2 * 0.45) * smoothstep(0.0, 0.25, y);',
@@ -294,7 +295,7 @@
     C.position.copy(tmpP).add(V(mouse.x * 0.35 * br + Math.sin(t * 0.3) * 0.06 * br, -mouse.y * 0.2 * br + Math.sin(t * 0.45) * 0.05 * br, 0));
     C.lookAt(tmpL);
     // sun and shadows follow the camera's subject
-    sun.position.copy(tmpL).add(V(-8, 14, 9)); sun.target.position.copy(tmpL); sky.position.copy(C.position);
+    sun.position.copy(tmpL).add(V(-16, 7, 10)); sun.target.position.copy(tmpL); sky.position.copy(C.position);
     // objects alive
     const idle = rm ? 0 : 1;
     mono.rotation.y = t * 0.12 * idle; mono.position.y = O[0].y + Math.sin(t * 0.6) * 0.12 * idle;

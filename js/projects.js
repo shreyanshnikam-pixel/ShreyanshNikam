@@ -1,4 +1,4 @@
-/* Projects: two refractive ice blocks (Sky Sentry, Echo) over a snowfield. Hover cracks a block; choosing one flies the camera into it.
+/* Projects: two refractive ice blocks (Sky Sentry, Echo) in a glacier valley: graded HDRI sky, rock-and-snow ridges, fog banks, god rays, falling snow. Hover cracks a block; choosing one flies the camera into it.
    Classic script; needs THREE (r147 bundle), FK (kit.js), SITE (core.js). The real <a class="blk"> links stay on top for keyboard and screen readers. */
 (function () {
   const T = THREE, S0 = window.SITE, V = (x, y, z) => new T.Vector3(x, y, z);
@@ -17,12 +17,24 @@
   // ---------- renderer, scene, post (same pipeline as the home page) ----------
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping;
   const S = new T.Scene(), C = new T.PerspectiveCamera(32, 1, 0.1, 700);
-  const bgC = document.createElement('canvas'); bgC.width = 512; bgC.height = 512;
-  { const g = bgC.getContext('2d'), gr = g.createRadialGradient(256, 170, 20, 256, 240, 420); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.45, '#F4F7FA'); gr.addColorStop(1, '#DCE6EE'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512); }
-  const bg = new T.CanvasTexture(bgC); bg.encoding = T.sRGBEncoding; S.background = bg;
-  const FOG = new T.Color('#EEF3F7'); S.fog = new T.FogExp2(FOG.clone(), 0.016);
+  S.background = new T.Color(0.9, 0.93, 0.955);
+  const FOG = new T.Color(0.9, 0.93, 0.955), FOG_D = 0.0055; S.fog = new T.FogExp2(FOG.clone(), FOG_D);
+  // the sun: low, just above the far ridge, slightly right of centre (the light comes from behind the blocks)
+  const SUN = V(Math.sin(0.06), Math.sin(T.MathUtils.degToRad(5.5)), -Math.cos(0.06)).normalize();
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
+  // screen-space god rays: march toward the sun and gather only what is brighter than the sky (sun and its halo), so ridges cut shafts
+  const rays = new T.ShaderPass({
+    uniforms: { tDiffuse: { value: null }, uSun: { value: new T.Vector2(0.5, 0.8) }, uAmt: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: [
+      'uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uAmt; varying vec2 vUv;',
+      'void main(){ vec3 base = texture2D(tDiffuse, vUv).rgb; if (uAmt < 0.001) { gl_FragColor = vec4(base, 1.0); return; }',
+      '  vec2 dl = (vUv - uSun) * (0.92 / 40.0); vec2 q = vUv; float acc = 0.0, dec = 1.0;',
+      '  for (int i = 0; i < 40; i++){ q -= dl; vec3 c = texture2D(tDiffuse, clamp(q, 0.0, 1.0)).rgb; acc += max(dot(c, vec3(0.2126, 0.7152, 0.0722)) - 1.12, 0.0) * dec; dec *= 0.955; }',
+      '  gl_FragColor = vec4(base + vec3(1.0, 0.985, 0.96) * acc / 40.0 * uAmt, 1.0); }'].join('\n'),
+  });
+  comp.addPass(rays);
   const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.32, 0.5, 0.985); comp.addPass(bloom);
   const grade = new T.ShaderPass({
     uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uFlash: { value: 0 }, uRes: { value: new T.Vector2(1, 1) } },
@@ -49,10 +61,28 @@
   const DPR = () => Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2);
 
   // ---------- light and environment ----------
-  const sun = new T.DirectionalLight(0xffffff, 2.2); sun.position.set(-9, 7, -10); S.add(sun);
-  S.add(new T.HemisphereLight(0xf4f8ff, 0xcbd8e4, 0.9));
+  const sun = new T.DirectionalLight(0xffffff, 2.0); sun.position.copy(SUN).multiplyScalar(60); S.add(sun);
+  S.add(new T.HemisphereLight(0xf4f8ff, 0xc3d2df, 0.85));
   const pm = new T.PMREMGenerator(R);
-  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; tx.dispose(); res(); }, undefined, () => res())));
+  // sky dome: Poly Haven snow_field_puresky (2k), turned so its own sun lines up with ours, graded to the icy palette
+  const skyU = { tSky: { value: null }, uOn: { value: 0 }, uYaw: { value: 2.265 }, uExp: { value: 1.55 }, uSun: { value: SUN }, uFog: { value: FOG } };
+  const sky = new T.Mesh(new T.SphereGeometry(600, 48, 24), new T.ShaderMaterial({
+    uniforms: skyU, side: T.BackSide, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position + cameraPosition, 1.0); gl_Position = p.xyww; }',
+    fragmentShader: [
+      'uniform sampler2D tSky; uniform float uOn, uYaw, uExp; uniform vec3 uSun, uFog; varying vec3 vDir;',
+      'void main(){ vec3 d = normalize(vDir);',
+      '  float a = atan(d.z, d.x) + uYaw; vec2 uv = vec2(fract(a * 0.15915494 + 0.5), asin(clamp(d.y, -1.0, 1.0)) * 0.31830988 + 0.5);',
+      '  vec3 c = mix(vec3(0.62, 0.66, 0.7), texture2D(tSky, uv).rgb, uOn) * uExp;',
+      '  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, 0.55) * vec3(0.93, 0.97, 1.03);',
+      '  c = mix(c, c * vec3(0.72, 0.83, 0.95), smoothstep(0.03, 0.65, d.y));',
+      '  c = mix(c, uFog, exp(-abs(d.y) * 12.0) * 0.6);',
+      '  float s = max(dot(d, uSun), 0.0);',
+      '  c += vec3(1.0, 0.975, 0.93) * (pow(s, 2200.0) * 26.0 + pow(s, 160.0) * 0.85 + pow(s, 14.0) * 0.2);',
+      '  gl_FragColor = vec4(c, 1.0); }'].join('\n'),
+  }));
+  sky.frustumCulled = false; sky.renderOrder = -10; S.add(sky);
+  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { skyU.tSky.value = tx; skyU.uOn.value = 1; tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())));
   const TL = new T.TextureLoader();
   const ltex = (f, srgb, rep) => new Promise((res) => { const t = TL.load(f, () => res(t), undefined, () => res(t)); t.wrapS = t.wrapT = T.RepeatWrapping; if (srgb) t.encoding = T.sRGBEncoding; t.anisotropy = 8; t.repeat.set(rep, rep); });
   const textCanvas = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8; t.userData.redraw = (...a) => { const g = c.getContext('2d'); g.clearRect(0, 0, w, h); draw(g, w, h, ...a); t.needsUpdate = true; }; t.userData.redraw(); return t; };
@@ -68,15 +98,64 @@
     '  float fade = exp(-length(vWP.xz - cameraPosition.xz) * 0.035);',
     '  outgoingLight = mix(outgoingLight, vec3(0.6, 0.69, 0.77), line * fade * 0.26); }'].join('\n'), true);
   const ground = new T.Mesh(new T.PlaneGeometry(800, 800).rotateX(-Math.PI / 2), gMat); S.add(ground);
-  const mtnM = new T.MeshStandardMaterial({ color: 0xf3f6f9, roughness: 0.95, flatShading: true });
+  const rockT = TL.load('assets/textures/rock_diff.jpg', () => { mtnU.uRockOn.value = 1; }); rockT.wrapS = rockT.wrapT = T.RepeatWrapping; rockT.encoding = T.sRGBEncoding;
+  const mtnU = { tRock: { value: rockT }, uRockOn: { value: 0 }, uFogC: { value: FOG }, uGy: { value: 0 } };
+  const mtnM = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, fog: false });
+  mtnM.extensions = { derivatives: true };
+  mtnM.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, mtnU);
+    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'uniform sampler2D tRock; uniform float uRockOn, uGy; uniform vec3 uFogC; varying vec3 vWP;\nfloat mh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }\nfloat mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }\n' +
+      sh.fragmentShader.replace('#include <color_fragment>', [
+        '#include <color_fragment>',
+        '{ vec3 nW = normalize(cross(dFdx(vWP), dFdy(vWP))); float sl = abs(nW.y);',
+        '  float br = mn(vWP.xz * 0.06) * 0.6 + mn(vWP.xz * 0.23) * 0.4;',
+        '  vec3 rk = mix(vec3(0.16, 0.2, 0.26), vec3(0.3, 0.36, 0.43), mn(vWP.xy * vec2(0.08, 0.5)));',
+        '  rk = mix(rk, texture2D(tRock, vWP.xy * 0.03).rgb * vec3(0.7, 0.8, 0.95), uRockOn * 0.75);',
+        '  float sn = smoothstep(0.5, 0.74, sl + (br - 0.5) * 0.35);',
+        '  diffuseColor.rgb = mix(rk, vec3(0.95, 0.97, 0.99), sn); }'].join('\n'))
+      .replace('#include <output_fragment>', [
+        '{ float dist = length(vWP - cameraPosition); float af = 1.0 - exp(-dist * 0.0042);',
+        '  float hf = smoothstep(uGy + 28.0, uGy, vWP.y) * 0.5;',
+        '  outgoingLight = mix(outgoingLight, uFogC, clamp(af + hf * (1.0 - af), 0.0, 0.97)); }',
+        '#include <output_fragment>'].join('\n'));
+  };
+  mtnM.customProgramCacheKey = () => 'proj-ridge';
   const mtns = new T.Group(); S.add(mtns);
-  for (let i = 0; i < 11; i++) {
-    const g = new T.IcosahedronGeometry(1, 4), p = g.attributes.position;
-    for (let k = 0; k < p.count; k++) { const v = V(p.getX(k), p.getY(k), p.getZ(k)); const n = FK.fbm(v.x * 1.8 + i * 3, v.y * 1.8, v.z * 1.8, 5); v.multiplyScalar(0.75 + n * 0.7); p.setXYZ(k, v.x, Math.max(-0.2, v.y), v.z); }
+  const ridge = (zNear, zFar, width, hMax, valley, seed, sx, sz) => {
+    const dep = zFar - zNear, g = new T.PlaneGeometry(width, dep, sx, sz).rotateX(-Math.PI / 2), p = g.attributes.position;
+    for (let k = 0; k < p.count; k++) {
+      const x = p.getX(k), z = p.getZ(k), t = (dep / 2 - z) / dep;
+      let n = 0, a = 0.5, f = 0.012 * (600 / width);
+      for (let o = 0; o < 5; o++) { const v = 1 - Math.abs(2 * FK.noise(x * f + seed, (z + zNear) * f * 1.6, seed * 0.37) - 1); n += a * v * v; a *= 0.5; f *= 2.1; }
+      const env = (valley + (1 - valley) * ss(0, width * 0.3, Math.abs(x))) * ss(0, 0.55, t);
+      p.setY(k, hMax * env * (0.3 + 1.1 * n));
+    }
     g.computeVertexNormals();
-    const m = new T.Mesh(g, mtnM), sc = 26 + rnd() * 36;
-    m.scale.set(sc * (1 + rnd()), sc * (0.5 + rnd() * 0.6), sc); m.position.set((i - 5) * 46 + (rnd() - 0.5) * 30, 0, -150 - rnd() * 140); mtns.add(m);
-  }
+    const m = new T.Mesh(g, mtnM); m.position.z = -(zNear + dep / 2); mtns.add(m); return m;
+  };
+  ridge(60, 120, 320, 16, 0.08, 3.1, 160, 40);
+  ridge(110, 230, 560, 42, 0.18, 7.7, 200, 50);
+  ridge(210, 420, 980, 95, 0.32, 12.3, 220, 60);
+
+  // low fog banks drifting across the valley
+  const bankU = { uT: { value: 0 } };
+  const bankMat = (sp, a) => new T.ShaderMaterial({
+    uniforms: { uT: bankU.uT, uS: { value: sp }, uA: { value: a }, uC: { value: FOG } }, transparent: true, depthWrite: false, fog: false,
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: [
+      'uniform float uT, uS, uA; uniform vec3 uC; varying vec2 vUv;',
+      'float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }',
+      'float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }',
+      'float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a*n2(p); p *= 2.03; a *= 0.5; } return s; }',
+      'void main(){ vec2 p = vec2(vUv.x * 7.0 + uT * uS, vUv.y * 1.6); float n = fbm(p + vec2(fbm(p * 0.6 - uT * uS * 0.5), 0.0));',
+      '  float a = smoothstep(0.32, 0.78, n) * smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.35, vUv.y) * smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);',
+      '  gl_FragColor = vec4(uC * 1.04, a * uA); }'].join('\n'),
+  });
+  const banks = new T.Group(); S.add(banks);
+  [[-30, 200, 9, 0.022, 0.55], [-48, 260, 14, -0.015, 0.6], [-75, 320, 18, 0.012, 0.65], [-105, 420, 24, -0.01, 0.7], [-150, 560, 30, 0.008, 0.7], [-20, 160, 6, -0.03, 0.4]].forEach(([z, w, h, sp, a]) => {
+    const m = new T.Mesh(new T.PlaneGeometry(w, h), bankMat(sp, a)); m.position.set((rnd() - 0.5) * 30, h / 2 - 1.2, z); m.userData.h = h; m.renderOrder = -1; banks.add(m);
+  });
 
   // drifting snow (none in reduced motion)
   const SN = rm ? 0 : (mobile() ? 1400 : 4200);
