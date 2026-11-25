@@ -8,13 +8,13 @@
   const SITE = window.SITE = { rm, touch, glOk, progress: 0, listeners: [], onScroll: (f) => SITE.listeners.push(f) };
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  // ---- smooth scroll, synced to ScrollTrigger through gsap.ticker ----
+  // ---- smooth scroll, synced to ScrollTrigger through gsap.ticker (snappy low-latency response) ----
   let lenis = null;
   if (!rm) {
-    lenis = SITE.lenis = new Lenis({ duration: 1.35, easing: (t) => 1 - Math.pow(1 - t, 4), smoothWheel: true });
+    lenis = SITE.lenis = new Lenis({ duration: 0.75, wheelMultiplier: 1.15, easing: (t) => 1 - Math.pow(1 - t, 3), smoothWheel: true });
     lenis.on('scroll', ScrollTrigger.update);
     gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
-    document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { const id = a.getAttribute('href'); if (id.length < 2) return; const el = document.querySelector(id); if (!el) return; e.preventDefault(); lenis.scrollTo(el, { duration: 1.6 }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); }));
+    document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { const id = a.getAttribute('href'); if (id.length < 2) return; const el = document.querySelector(id); if (!el) return; e.preventDefault(); lenis.scrollTo(el, { duration: 1.0 }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); }));
   }
 
   // ---- header: hide on scroll down, show on scroll up; colour follows the section ----
@@ -33,17 +33,26 @@
 
   // ---- HUD: clock in New York, section counter ----
   const clock = document.querySelector('[data-hud=clock]');
-  const tick = () => { if (clock) clock.textContent = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date()) + ' EST'; };
+  const tick = () => { if (clock) clock.textContent = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short' }).format(new Date()); };
   tick(); setInterval(tick, 1000);
   const secs = Array.from(document.querySelectorAll('[data-section]')), secHud = document.querySelector('[data-hud=sec]'), secName = document.querySelector('[data-hud=name]');
   secs.forEach((s, i) => ScrollTrigger.create({ trigger: s, start: 'top 55%', end: 'bottom 55%', onToggle: (st) => { if (!st.isActive) return; if (secHud) secHud.textContent = String(i + 1).padStart(2, '0') + ' / ' + String(secs.length).padStart(2, '0'); if (secName) secName.textContent = s.dataset.section; SITE.section = i; } }));
 
-  // ---- custom cursor ----
-  if (!touch) {
+  // ---- custom cursor (delta-time smoothed for 60Hz-240Hz parity; disabled on touch & reduced motion) ----
+  if (!touch && !rm) {
     const c = document.createElement('div'); c.className = 'cursor'; c.setAttribute('aria-hidden', 'true'); document.body.appendChild(c);
-    let x = innerWidth / 2, y = innerHeight / 2, cx = x, cy = y;
-    window.addEventListener('pointermove', (e) => { x = e.clientX; y = e.clientY; }, { passive: true });
-    gsap.ticker.add(() => { cx += (x - cx) * 0.2; cy += (y - cy) * 0.2; c.style.transform = `translate(${cx.toFixed(1)}px,${cy.toFixed(1)}px)`; });
+    let x = innerWidth / 2, y = innerHeight / 2, cx = x, cy = y, seen = false;
+    window.addEventListener('pointermove', (e) => {
+      x = e.clientX; y = e.clientY;
+      if (!seen) { seen = true; cx = x; cy = y; c.classList.add('seen'); }
+    }, { passive: true });
+    gsap.ticker.add((t, deltaRatio, frame) => {
+      if (!seen) return;
+      const dt = Math.min(0.05, (gsap.ticker.deltaRatio(60) || 1) / 60);
+      const k = 1 - Math.exp(-dt * 14);
+      cx += (x - cx) * k; cy += (y - cy) * k;
+      c.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0)`;
+    });
     document.addEventListener('pointerover', (e) => { c.classList.toggle('big', !!e.target.closest('a,button,[data-hover]')); });
   }
 
@@ -116,18 +125,25 @@
       if (shown < 1) requestAnimationFrame(step); else finish();
     };
     const finish = () => {
+      if (rm) {
+        if (pre) pre.classList.add('done');
+        onDone && onDone();
+        ScrollTrigger.refresh();
+        SITE.reveals();
+        return;
+      }
       const flash = document.querySelector('.flash');
       const tl = gsap.timeline();
-      if (flash && !rm) tl.to(flash, { opacity: 1, duration: 0.25, ease: 'power3.out' });
+      if (flash) tl.to(flash, { opacity: 1, duration: 0.25, ease: 'power3.out' });
       tl.add(() => { if (pre) pre.classList.add('done'); onDone && onDone(); ScrollTrigger.refresh(); });
-      if (flash && !rm) tl.to(flash, { opacity: 0, duration: 1.1, ease: 'expo.out' });
+      if (flash) tl.to(flash, { opacity: 0, duration: 1.1, ease: 'expo.out' });
       const t = document.querySelector('[data-intro]');
-      if (t && !rm) { const st = new SplitText(t, { type: 'chars,lines', linesClass: 'line-mask' }); tl.from(st.chars, { yPercent: 120, filter: 'blur(12px)', opacity: 0, duration: 1.2, ease: 'expo.out', stagger: 0.035 }, '-=0.95'); }
+      if (t) { const st = new SplitText(t, { type: 'chars,lines', linesClass: 'line-mask' }); tl.from(st.chars, { yPercent: 120, filter: 'blur(12px)', opacity: 0, duration: 1.2, ease: 'expo.out', stagger: 0.035 }, '-=0.95'); }
       document.querySelectorAll('[data-intro-fade]').forEach((el, i) => tl.from(el, { y: 24, opacity: 0, duration: 1, ease: 'power3.out' }, '-=' + (i ? 0.85 : 0.7)));
       SITE.reveals();
     };
     const fake = setInterval(() => { target = Math.min(0.9, target + 0.02); }, 120);
-    (loadPromise || Promise.resolve()).catch(() => {}).then(() => { clearInterval(fake); target = 1; });
+    (loadPromise || Promise.resolve()).catch(() => {}).then(() => { clearInterval(fake); target = 1; if (rm) shown = 1; });
     SITE.setLoad = (v) => { target = Math.max(target, Math.min(0.97, v)); };
     requestAnimationFrame(step);
   };

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Projects: Sky Sentry and Echo | Shreyansh Nikam</title>
 <meta name="description" content="Two projects from fall 2026: Sky Sentry (HackPHS: Best Use of Solana, Best Use of TigerData, 5th place overall) and Echo (Hack Club Haven Princeton: 1st prize, best overall).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-16 -16 32 32'%3E%3Crect x='-16' y='-16' width='32' height='32' rx='8' fill='%23F4F7FA'/%3E%3Cg stroke='%235E8AAB' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M0-11V11M-9.5-5.5L9.5 5.5M-9.5 5.5L9.5-5.5'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
@@ -19,7 +20,7 @@
 .foot{background:rgba(244,247,250,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 .pstage .head{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;pointer-events:none}
 .pstage .head a{pointer-events:auto}
-.pstage h1.display{font-size:clamp(46px,6.4vw,112px)}
+.pstage h1.display{font-size:clamp(34px,6.4vw,112px)}
 .pstage h1 .dot{color:var(--deep)}
 .pstage .hint{text-align:right;max-width:30ch}
 .blks{position:relative;z-index:2;flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,5vw,96px);margin-top:clamp(16px,2.4vh,30px)}
@@ -53,15 +54,15 @@ html.gl .etch{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0
 .proj .aw{list-style:none;margin:0;padding:0;border-top:1px solid var(--glacier)}
 .proj .aw li{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 0;border-bottom:1px solid var(--glacier);font-weight:500}
 .proj .aw li .hud{white-space:nowrap}
-.proj .credit{margin:22px 0 0;font-size:15.5px;color:var(--slate)}
+.proj .credit{margin:22px 0 0;font-size:15.5px;color:rgba(15,27,38,.74)}
 .proj .btns{margin-top:auto;padding-top:30px}
 .proj .btn{min-height:48px;padding:0 20px;font-size:14.5px}
 @media (max-width:900px){.pgrid{grid-template-columns:1fr}}
 @media (max-width:760px){
-  .pstage{min-height:720px;padding:84px var(--pad) 46px}
+  .pstage{height:auto;min-height:100svh;padding:84px var(--pad) 54px}
   .pstage .head{flex-direction:column;align-items:flex-start;gap:10px}
   .pstage .hint{display:none}
-  .blks{grid-template-columns:1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:18px}
+  .blks{grid-template-columns:1fr;grid-template-rows:repeat(2,minmax(260px,1fr));gap:18px}
   .blk .cap{padding-top:10px}
   .blk .cap .meta{margin-bottom:6px;font-size:10.5px;letter-spacing:.1em}
   .proj .aw li{flex-direction:column;gap:4px}
@@ -85,7 +86,7 @@ html.gl .etch{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0
 <div class="flash" aria-hidden="true"></div>
 
 <header class="hdr">
-  <a class="brand" href="index.html">Shreyansh Nikam</a>
+  <a class="brand" href="index.html"><span class="bf">Shreyansh </span>Nikam</a>
   <nav class="nav" aria-label="Main">
     <a href="index.html">About me</a><a href="projects.html" aria-current="page">Projects</a><a href="sky-sentry.html">Sky Sentry</a><a href="echo.html" class="opt">Echo</a>
   </nav>
