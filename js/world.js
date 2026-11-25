@@ -13,8 +13,8 @@
   const S = new T.Scene(), C = new T.PerspectiveCamera(mobile ? 48 : 36, innerWidth / innerHeight, 0.1, 900);
   const bgC = document.createElement('canvas'); bgC.width = 512; bgC.height = 512;
   { const g = bgC.getContext('2d'), gr = g.createRadialGradient(256, 150, 20, 256, 230, 420); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.45, '#F4F7FA'); gr.addColorStop(1, '#DCE6EE'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512); }
-  const bg = new T.CanvasTexture(bgC); bg.encoding = T.sRGBEncoding; S.background = bg;
-  const FOG_SNOW = new T.Color('#DCE7F0'), FOG_WATER = new T.Color('#3C88A6');
+  const bg = new T.CanvasTexture(bgC); bg.encoding = T.sRGBEncoding; S.background = bg; /* replaced by the sky dome once built */
+  const FOG_SNOW = new T.Color('#D3E0EB'), FOG_WATER = new T.Color('#3C88A6');
   S.fog = new T.FogExp2(FOG_SNOW.clone(), 0.008);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
@@ -51,7 +51,7 @@
   S.add(sun); S.add(sun.target);
   S.add(new T.HemisphereLight(0xf4f8ff, 0xcbd8e4, 0.9));
   const pm = new T.PMREMGenerator(R);
-  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; S.background = tx; res(); }, undefined, () => res())));
+  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())));
   const TL = new T.TextureLoader();
   const ltex = (f, srgb, rep) => { const t = TL.load(f); t.wrapS = t.wrapT = T.RepeatWrapping; if (srgb) t.encoding = T.sRGBEncoding; t.anisotropy = 8; if (rep) t.repeat.set(rep, rep); return t; };
 
@@ -126,6 +126,25 @@
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uT, uA; varying vec2 vUv; void main(){ float s = smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x); float b = 0.55 + 0.45 * sin(vUv.x * 18.0 + uT * 0.25) * sin(vUv.x * 7.0 - uT * 0.17); gl_FragColor = vec4(vec3(1.0, 0.98, 0.94), s * b * vUv.y * 0.11 * uA); }' });
   const rays = new T.Group(); for (let i = 0; i < 5; i++) { const m = new T.Mesh(new T.PlaneGeometry(14 + i * 4, 70), rayM); m.position.set(-20 + i * 7, 30, -20 - i * 30); m.rotation.set(0, 0.3, -0.55); rays.add(m); } S.add(rays);
+  // sky dome: cold blue-hour gradient with drifting cirrus and a low sun glow (icy palette)
+  const skyU = { uT: bankU.uT, uSun: { value: V(-0.45, 0.18, -0.87).normalize() } };
+  const sky = new T.Mesh(new T.SphereGeometry(760, 48, 24), new T.ShaderMaterial({ uniforms: skyU, side: T.BackSide, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+    fragmentShader: [
+      'uniform float uT; uniform vec3 uSun; varying vec3 vD;',
+      'float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); } float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }',
+      'float fb(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<6;i++){ s+=a*n(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s; }',
+      'vec3 lin(vec3 c){ return pow(c, vec3(2.2)); }',
+      'void main(){ vec3 d = normalize(vD); float y = d.y;',
+      '  vec3 zen = lin(vec3(0.24, 0.38, 0.52)), mid = lin(vec3(0.55, 0.69, 0.80)), hor = lin(vec3(0.86, 0.91, 0.95));',
+      '  vec3 col = mix(hor, mid, smoothstep(0.0, 0.18, y)); col = mix(col, zen, smoothstep(0.18, 0.75, y));',
+      '  float s = max(dot(d, uSun), 0.0); col += lin(vec3(1.0, 0.97, 0.92)) * (pow(s, 600.0) * 6.0 + pow(s, 24.0) * 0.35 + pow(s, 4.0) * 0.12);',
+      '  vec2 uv = d.xz / max(y + 0.12, 0.05); float c = fb(uv * 1.3 + vec2(uT * 0.004, 0.0)); float c2 = fb(uv * 3.1 - vec2(uT * 0.006, uT * 0.002));',
+      '  float cl = smoothstep(0.48, 0.78, c * 0.7 + c2 * 0.45) * smoothstep(0.0, 0.25, y);',
+      '  vec3 cc = mix(lin(vec3(0.72, 0.80, 0.88)), lin(vec3(1.0)), smoothstep(0.5, 0.9, c2) + pow(s, 8.0));',
+      '  col = mix(col, cc, cl * 0.85); col = mix(col, hor, smoothstep(0.06, -0.02, y));',
+      '  gl_FragColor = vec4(col, 1.0); }'].join('\n') }));
+  sky.frustumCulled = false; S.add(sky);
   // drifting snow around the camera
   const SN = mobile ? 1600 : 6000, sp = new Float32Array(SN * 3), sr = new Float32Array(SN);
   for (let i = 0; i < SN; i++) { sp.set([rnd() * 60 - 30, rnd() * 24, rnd() * 60 - 30], i * 3); sr[i] = rnd(); }
@@ -275,7 +294,7 @@
     C.position.copy(tmpP).add(V(mouse.x * 0.35 * br + Math.sin(t * 0.3) * 0.06 * br, -mouse.y * 0.2 * br + Math.sin(t * 0.45) * 0.05 * br, 0));
     C.lookAt(tmpL);
     // sun and shadows follow the camera's subject
-    sun.position.copy(tmpL).add(V(-8, 14, 9)); sun.target.position.copy(tmpL);
+    sun.position.copy(tmpL).add(V(-8, 14, 9)); sun.target.position.copy(tmpL); sky.position.copy(C.position);
     // objects alive
     const idle = rm ? 0 : 1;
     mono.rotation.y = t * 0.12 * idle; mono.position.y = O[0].y + Math.sin(t * 0.6) * 0.12 * idle;
