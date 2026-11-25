@@ -14,7 +14,7 @@
   const bgC = document.createElement('canvas'); bgC.width = 512; bgC.height = 512;
   { const g = bgC.getContext('2d'), gr = g.createRadialGradient(256, 150, 20, 256, 230, 420); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.45, '#F4F7FA'); gr.addColorStop(1, '#DCE6EE'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512); }
   const bg = new T.CanvasTexture(bgC); bg.encoding = T.sRGBEncoding; S.background = bg;
-  const FOG_SNOW = new T.Color('#EEF3F7'), FOG_WATER = new T.Color('#3C88A6');
+  const FOG_SNOW = new T.Color('#DCE7F0'), FOG_WATER = new T.Color('#3C88A6');
   S.fog = new T.FogExp2(FOG_SNOW.clone(), 0.008);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
@@ -51,7 +51,7 @@
   S.add(sun); S.add(sun.target);
   S.add(new T.HemisphereLight(0xf4f8ff, 0xcbd8e4, 0.9));
   const pm = new T.PMREMGenerator(R);
-  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())));
+  loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow_2k.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; S.background = tx; res(); }, undefined, () => res())));
   const TL = new T.TextureLoader();
   const ltex = (f, srgb, rep) => { const t = TL.load(f); t.wrapS = t.wrapT = T.RepeatWrapping; if (srgb) t.encoding = T.sRGBEncoding; t.anisotropy = 8; if (rep) t.repeat.set(rep, rep); return t; };
 
@@ -99,16 +99,33 @@
     '  float fade = exp(-length(vWP.xz - cameraPosition.xz) * 0.04);',
     '  outgoingLight = mix(outgoingLight, vec3(0.6, 0.69, 0.77), line * fade * 0.28); }'].join('\n'), true);
   const ground = new T.Mesh(gGeo, gMat); ground.receiveShadow = true; S.add(ground);
-  const mtnM = new T.MeshStandardMaterial({ color: 0xf3f6f9, roughness: 0.95, flatShading: true });
   const rnd = FK.rng(21);
-  for (let i = 0; i < 16; i++) {
-    const g = new T.IcosahedronGeometry(1, 4), p = g.attributes.position;
-    for (let k = 0; k < p.count; k++) { const v = V(p.getX(k), p.getY(k), p.getZ(k)); const n = FK.fbm(v.x * 1.8 + i, v.y * 1.8, v.z * 1.8, 5); v.multiplyScalar(0.75 + n * 0.7); p.setXYZ(k, v.x, Math.max(-0.2, v.y), v.z); }
-    g.computeVertexNormals();
-    const m = new T.Mesh(g, mtnM), side = i % 2 ? 1 : -1, sc = 28 + rnd() * 40;
-    m.scale.set(sc * (1 + rnd()), sc * (0.6 + rnd() * 0.7), sc); m.position.set(side * (90 + rnd() * 80), -2, -rnd() * 300 + 20); S.add(m);
-  }
-
+  // mountain range: a displaced terrain with a flat valley along the camera path, snow on flats, rock on steep faces
+  { const SZ = 1600, SEG = mobile ? 160 : 300, tg = new T.PlaneGeometry(SZ, SZ, SEG, SEG); tg.rotateX(-Math.PI / 2); const p = tg.attributes.position;
+    for (let k = 0; k < p.count; k++) { const x = p.getX(k), z = p.getZ(k) - 80;
+      const dv = Math.max(Math.abs(x) - 22, 0, z - 60, -260 - z) , valley = ss(0, 160, dv);
+      let r = 0, a = 1, f = 1 / 220; for (let o = 0; o < 6; o++) { const n = 1 - Math.abs(FK.noise(x * f + 11, z * f - 7, o * 3.1) * 2 - 1); r += n * n * a; a *= 0.5; f *= 2.05; }
+      p.setY(k, valley * r * (110 + 120 * FK.noise(x / 500, z / 500, 5)) - 1.2); }
+    tg.computeVertexNormals();
+    const tm = new T.MeshStandardMaterial({ color: 0xffffff, map: ltex('assets/textures/snow_diff.jpg', true, 60), roughness: 0.9 });
+    const rockT = ltex('assets/textures/rock_diff.jpg', true);
+    FK.patch(tm, 'mtn', { rockT: { value: rockT } }, 'uniform sampler2D rockT;', [
+      '{ vec3 wn = normalize(cross(dFdx(vWP), dFdy(vWP)));',
+      '  float steep = smoothstep(0.82, 0.55, abs(wn.y));',
+      '  vec3 rk = texture2D(rockT, vWP.xz * 0.02 + vWP.y * 0.01).rgb; rk = pow(rk, vec3(1.6)) * vec3(0.55, 0.62, 0.7);',
+      '  outgoingLight = mix(outgoingLight, outgoingLight * rk * 1.6, steep * 0.85); }'].join('\n'), true);
+    const terrain = new T.Mesh(tg, tm); terrain.position.z = -80; terrain.receiveShadow = true; S.add(terrain); }
+  // low fog banks drifting across the valley
+  const bankU = { uT: { value: 0 } };
+  const bankM = new T.ShaderMaterial({ uniforms: bankU, transparent: true, depthWrite: false, fog: false,
+    vertexShader: 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: 'uniform float uT; varying vec2 vUv; varying vec3 vW; float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); } float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); } float fb(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<5;i++){ s+=a*n(p); p*=2.1; a*=0.5; } return s; } void main(){ vec2 q = vW.xz * 0.035 + vec2(uT * 0.012, uT * 0.004); float d = fb(q) * fb(q * 1.7 + 3.0); float edge = smoothstep(0.0, 0.25, vUv.x) * smoothstep(1.0, 0.75, vUv.x) * smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y); float a = smoothstep(0.12, 0.42, d) * edge * 0.55; gl_FragColor = vec4(vec3(0.93, 0.96, 0.98), a); }' });
+  for (let i = 0; i < 9; i++) { const m = new T.Mesh(new T.PlaneGeometry(220, 120), bankM); m.rotation.x = -Math.PI / 2; m.position.set((rnd() - 0.5) * 60, 0.8 + i * 0.9, -i * 26 + 10); S.add(m); }
+  // god rays: soft shafts falling from the sun side
+  const rayM = new T.ShaderMaterial({ uniforms: { uT: bankU.uT, uA: { value: 1 } }, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: false,
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uT, uA; varying vec2 vUv; void main(){ float s = smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x); float b = 0.55 + 0.45 * sin(vUv.x * 18.0 + uT * 0.25) * sin(vUv.x * 7.0 - uT * 0.17); gl_FragColor = vec4(vec3(1.0, 0.98, 0.94), s * b * vUv.y * 0.11 * uA); }' });
+  const rays = new T.Group(); for (let i = 0; i < 5; i++) { const m = new T.Mesh(new T.PlaneGeometry(14 + i * 4, 70), rayM); m.position.set(-20 + i * 7, 30, -20 - i * 30); m.rotation.set(0, 0.3, -0.55); rays.add(m); } S.add(rays);
   // drifting snow around the camera
   const SN = mobile ? 1600 : 6000, sp = new Float32Array(SN * 3), sr = new Float32Array(SN);
   for (let i = 0; i < SN; i++) { sp.set([rnd() * 60 - 30, rnd() * 24, rnd() * 60 - 30], i * 3); sr[i] = rnd(); }
@@ -276,7 +293,10 @@
     pool.children.forEach((o) => { if (o.userData.rope != null) o.position.y = -0.3 + Math.sin(t * 1.6 + o.userData.rope * 0.4) * 0.012; if (o.userData.shaft != null) o.rotation.z = 0.25 + Math.sin(t * 0.3 + o.userData.shaft) * 0.06; });
     if (inPool) { const bpos = bubG.attributes.position; for (let i = 0; i < BN; i++) { let y = bpos.getY(i) + dt * (0.25 + (i % 7) * 0.05); if (y > -0.32) y = -DP; bpos.setY(i, y); } bpos.needsUpdate = true;
       swimmer.position.x = ((t * 1.1) % (PL + 4)) - PL / 2 - 2; const st = t * 4.2; swimmer.userData.arms.forEach((a, j) => { a.rotation.y = Math.sin(st + j * Math.PI) * 1.2; }); swimmer.userData.legs.forEach((l, j) => { l.rotation.y = Math.sin(st * 2 + j * Math.PI) * 0.25; }); }
-    S.fog.color.copy(FOG_SNOW).lerp(FOG_WATER, under); S.fog.density = under ? 0.16 : 0.008;
+    const MOOD = [[0.006, 1.0, 2.6], [0.016, 3.0, 1.6], [0.008, 1.0, 2.4], [0.007, 1.2, 2.8], [0.009, 1.0, 2.2], [0.006, 0.8, 2.6], [0.007, 1.2, 2.4], [0.0045, 0.6, 2.8]];
+    const mi = Math.max(0, Math.min(N - 2, Math.floor(tS))), mf = Math.max(0, Math.min(1, tS - mi)), mA = MOOD[mi] || MOOD[0], mB = MOOD[mi + 1] || mA;
+    const fogD = mA[0] + (mB[0] - mA[0]) * mf, windM = mA[1] + (mB[1] - mA[1]) * mf; sun.intensity = mA[2] + (mB[2] - mA[2]) * mf;
+    S.fog.color.copy(FOG_SNOW).lerp(FOG_WATER, under); S.fog.density = under ? 0.16 : fogD; bankU.uT.value = t; snowU.uWind.value = windM + Math.abs(tTarget - tS) * 4;
     grade.uniforms.uWater.value += ((under ? 1 : 0) - grade.uniforms.uWater.value) * (1 - Math.exp(-dt * 6));
     // awards: shards rotate in while the section is pinned
     const af = secFrac(pinned);
@@ -285,7 +305,7 @@
     // white noise flash at each section boundary
     let fl = 0; if (!rm) for (let i = 0; i < N - 1; i++) fl = Math.max(fl, 1 - Math.abs(tS - (i + 0.5)) / 0.07);
     grade.uniforms.uFlash.value = Math.max(0, fl) * 0.6; grade.uniforms.uT.value = t;
-    snowU.uT.value = t; snowU.uCam.value.copy(C.position); snowU.uWind.value = 1 + Math.abs(tTarget - tS) * 4;
+    snowU.uT.value = t; snowU.uCam.value.copy(C.position);
     comp.render(dt);
   }
 
