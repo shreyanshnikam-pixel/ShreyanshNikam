@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en" class="js-off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credits: every asset, creator and licence · Shreyansh Nikam</title>
+<meta name="description" content="Every model, texture, sound, voice, font and library used on Shreyansh Nikam's portfolio, with its creator, source and licence.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+.cr-hero{padding:150px var(--pad) 40px}
+.cr-hero h1 .dot{color:var(--signal)}
+.cr-hero .lead{margin-top:28px;max-width:60ch}
+.cr-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:40px;max-width:1100px}
+.cr-notes .glass{padding:22px 24px}
+.cr-notes p{margin:0;font-size:15.5px}
+.cr-notes .hud{display:block;margin-bottom:10px;color:var(--deep)}
+.cr-block{padding:60px var(--pad) 20px}
+.cr-block h2.display{font-size:clamp(30px,3.6vw,56px)}
+.cr-block .intro{margin:18px 0 0;color:var(--slate);font-size:16px}
+.tbl{margin-top:30px;padding:8px 22px 10px;overflow:hidden}
+table.cr{width:100%;border-collapse:collapse;font-size:15px;line-height:1.5}
+table.cr caption{text-align:left;padding:14px 0 12px;font:500 11.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+table.cr thead th{text-align:left;font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--slate);padding:10px 14px 10px 0;border-bottom:1px solid var(--glacier);font-weight:500}
+table.cr tbody th,table.cr td{text-align:left;vertical-align:top;padding:15px 14px 15px 0;border-bottom:1px solid var(--glacier);overflow-wrap:anywhere}
+table.cr tbody tr:last-child th,table.cr tbody tr:last-child td{border-bottom:0}
+table.cr tbody th{font-weight:600;color:var(--ink);width:22%}
+table.cr td.use{color:var(--slate);width:28%}
+table.cr td.lic{font:500 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--deep);white-space:nowrap}
+table.cr td a{text-decoration:none;border-bottom:1px solid var(--glacier);transition:border-color .4s var(--ease)}
+table.cr td a:hover{border-color:var(--ink)}
+table.cr .none td{color:var(--slate);font-style:italic}
+.small{font-size:14px;color:var(--slate);max-width:90ch;margin-top:18px}
+.later{border:1px dashed var(--glacier);border-radius:20px;padding:6px 22px 10px;margin-top:30px;background:rgba(244,247,250,.4)}
+.built{padding:70px var(--pad) 90px}
+.built h2.display{font-size:clamp(30px,3.6vw,56px)}
+.built .lead{margin-top:22px}
+/* phones: each row becomes a stacked card with its own labels, no horizontal scrolling */
+@media (max-width:760px){
+  .cr-notes{grid-template-columns:1fr}
+  .tbl,.later{padding:4px 16px 6px}
+  table.cr,table.cr caption,table.cr tbody,table.cr tr,table.cr th,table.cr td{display:block;width:auto!important}
+  table.cr thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  table.cr tbody tr{padding:16px 0;border-bottom:1px solid var(--glacier)}
+  table.cr tbody tr:last-child{border-bottom:0}
+  table.cr tbody th,table.cr td{border:0;padding:3px 0}
+  table.cr tbody th{font-size:16.5px;padding-bottom:8px}
+  table.cr td{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px}
+  table.cr td::before{content:attr(data-label);font:500 10.5px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  table.cr td.lic{white-space:normal}
+  table.cr .none td{display:block}table.cr .none td::before{content:none}
+}
+</style>
+</head>
+<body data-base="light">
+<a class="skip" href="#main">Skip to content</a>
+<div class="pre" role="status" aria-label="Loading">
+  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
+    <g><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+  </svg>
+  <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
+</div>
+<div class="flash" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="index.html">Shreyansh Nikam</a>
+  <nav class="nav" aria-label="Main">
+    <a href="index.html">About me</a><a href="projects.html">Projects</a><a href="sky-sentry.html">Sky Sentry</a><a href="echo.html" class="opt">Echo</a>
+  </nav>
+  <div class="tools"><span class="hud clock" data-hud="clock"></span><button class="sound" type="button" aria-pressed="false"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="t">Sound off</span></button></div>
+</header>
+<div class="hudbar bl hud" aria-hidden="true"><span data-hud="sec">01 / 07</span><span data-hud="name">Credits</span></div>
+<div class="hudbar br hud" aria-hidden="true"><span data-hud="pct">000%</span></div>
+<div class="hudbar lv hud" aria-hidden="true">40.7876° N · 74.3274° W · Livingston, NJ</div>
+
+<main id="main">
+  <section class="cr-hero" data-section="Credits">
+    <p class="hud" data-intro-fade>Every asset, creator and licence</p>
+    <h1 class="display" data-intro>Credits<span class="dot">.</span></h1>
+    <p class="lead" data-intro-fade>This site is built from my own code plus free, openly licensed work by other people. Every model, texture, sound, voice, font and library is listed below with who made it, where it came from and the licence that lets me use it.</p>
+    <div class="cr-notes" data-intro-fade>
+      <div class="glass"><span class="hud">Built by</span><p>Designed and built by Shreyansh Nikam, Livingston High School, New Jersey, 2026. The projects shown were built with teammates, credited on each project page.</p></div>
+      <div class="glass"><span class="hud">About the Sky Sentry film</span><p>The Sky Sentry film is a dramatization. The airline, its livery, the flight, the radio calls and the readings are fictional. No real airline, airport crew or incident is shown.</p></div>
+    </div>
+  </section>
+
+  <section class="cr-block" id="models" data-section="3D models">
+    <p class="label">02 · 3D models</p>
+    <h2 class="display" data-split>Models and props.</h2>
+    <div class="glass tbl" data-fade>
+      <table class="cr">
+        <caption>3D models used on this site</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Boeing 747SP (SOFIA) geometry</th><td class="use" data-label="Used for">The airliner in the Sky Sentry film, repainted with a fictional livery</td><td data-label="Creator">NASA 3D Resources</td><td data-label="Source"><a href="https://github.com/nasa/NASA-3D-Resources">github.com/nasa/NASA-3D-Resources</a> (3D Printing / SOFIA)</td><td class="lic" data-label="Licence">Public domain (NASA media guidelines). Not endorsed by NASA.</td></tr>
+          <tr><th scope="row">The Listener (creature model and animations)</th><td class="use" data-label="Used for">The creature in the Echo mine: idle, stalk, listen and dormant animations</td><td data-label="Creator">The HackHaven team (Echo)</td><td data-label="Source"><a href="https://github.com/BurTheBear/HackHaven">github.com/BurTheBear/HackHaven</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Jump-scare model and animation</th><td class="use" data-label="Used for">The scare at the end of the Echo page</td><td data-label="Creator">The HackHaven team (Echo)</td><td data-label="Source"><a href="https://github.com/BurTheBear/HackHaven">github.com/BurTheBear/HackHaven</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Mine props: barrel, stacked crates, rubble, standing lantern, bones, skull, ribcage</th><td class="use" data-label="Used for">Set dressing in the Echo mine</td><td data-label="Creator">Kay Lousberg (KayKit Dungeon Remastered, KayKit Halloween Bits), via the HackHaven repo</td><td data-label="Source"><a href="https://kaylousberg.itch.io/">kaylousberg.itch.io</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Rock 07, Rock 09</th><td class="use" data-label="Used for">Boulders in the Echo mine</td><td data-label="Creator">Poly Haven, via the HackHaven repo</td><td data-label="Source"><a href="https://polyhaven.com/models">polyhaven.com/models</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cr-block" id="textures" data-section="Textures and skies">
+    <p class="label">03 · Textures and skies</p>
+    <h2 class="display" data-split>Snow, rock and light.</h2>
+    <div class="glass tbl" data-fade>
+      <table class="cr">
+        <caption>Textures and HDR skies used on this site</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Snow Field (Pure Sky) HDRI</th><td class="use" data-label="Used for">Cold sky light and reflections in the icy world</td><td data-label="Creator">Poly Haven</td><td data-label="Source"><a href="https://polyhaven.com/a/snow_field_puresky">polyhaven.com/a/snow_field_puresky</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Snow 02 (diffuse, normal, roughness)</th><td class="use" data-label="Used for">The snowfield ground on the home and projects pages</td><td data-label="Creator">Poly Haven</td><td data-label="Source"><a href="https://polyhaven.com/a/snow_02">polyhaven.com/a/snow_02</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Belfast Sunset (Pure Sky) HDRI</th><td class="use" data-label="Used for">Sky light for the Sky Sentry film</td><td data-label="Creator">Poly Haven</td><td data-label="Source"><a href="https://polyhaven.com/a/belfast_sunset_puresky">polyhaven.com/a/belfast_sunset_puresky</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Aerial Grass Rock, Asphalt 02, Brushed Concrete</th><td class="use" data-label="Used for">Ground, runway and tower surfaces in the Sky Sentry film</td><td data-label="Creator">Poly Haven</td><td data-label="Source"><a href="https://polyhaven.com/textures">polyhaven.com/textures</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Dark Rock 02, Rock Face 04, Brown Mud 03, Weathered Planks</th><td class="use" data-label="Used for">Mine walls, floor and timber in Echo</td><td data-label="Creator">Poly Haven, via the HackHaven repo</td><td data-label="Source"><a href="https://polyhaven.com/textures">polyhaven.com/textures</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cr-block" id="audio" data-section="Sound and voices">
+    <p class="label">04 · Sound and voices</p>
+    <h2 class="display" data-split>What you hear.</h2>
+    <div class="glass tbl" data-fade>
+      <table class="cr">
+        <caption>Sounds and voices used on this site</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Echo sounds: sonar ping, cave drone, heartbeat, hiss, footstep, scare mix</th><td class="use" data-label="Used for">Sonar, ambience and the scare on the Echo page</td><td data-label="Creator">Freesound recordings (authors listed below), edited by the HackHaven team</td><td data-label="Source"><a href="https://github.com/BurTheBear/HackHaven/blob/main/ASSETS.md">HackHaven ASSETS.md</a>, <a href="https://freesound.org">freesound.org</a></td><td class="lic" data-label="Licence">CC0 1.0</td></tr>
+          <tr><th scope="row">Kokoro-82M text-to-speech model</th><td class="use" data-label="Used for">The pilot, tower and alert voices in the Sky Sentry film (voices am_michael, am_onyx, af_heart)</td><td data-label="Creator">hexgrad</td><td data-label="Source"><a href="https://huggingface.co/hexgrad/Kokoro-82M">huggingface.co/hexgrad/Kokoro-82M</a></td><td class="lic" data-label="Licence">Apache-2.0</td></tr>
+          <tr><th scope="row">Engine, wind, explosion, thump, alarm</th><td class="use" data-label="Used for">Sky Sentry sound effects</td><td data-label="Creator">Made for this site (synthesised with ffmpeg)</td><td data-label="Source">Own work</td><td class="lic" data-label="Licence">Own work</td></tr>
+          <tr><th scope="row">Wind ambience and crystal clicks</th><td class="use" data-label="Used for">Optional sound on the icy pages</td><td data-label="Creator">Made for this site (generated live with the Web Audio API)</td><td data-label="Source">Own work</td><td class="lic" data-label="Licence">Own work</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">Freesound recordists credited in the Echo asset list: SamsterBirdies, SecureSubset, Nox_Sound, Anilan, Adielees9, kevinklang, EricsSoundschmiede, fonografico, mucky_pete7, paespedro, loudernoises, BaDoink, Darsycho, alegemaate, Rmutt, zepurple, Breviceps, mateozugi19, shelbyshark, plasterbrain, cabled_mess, ACPascal, kijjaz, iwanPlays, adamgryu, AlanCat, spookymodem, AMichaelWilson, qubodup and geoneo0.</p>
+  </section>
+
+  <section class="cr-block" id="fonts" data-section="Fonts">
+    <p class="label">05 · Fonts</p>
+    <h2 class="display" data-split>Type.</h2>
+    <div class="glass tbl" data-fade>
+      <table class="cr">
+        <caption>Fonts used on this site, all served by Google Fonts</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Unbounded</th><td class="use" data-label="Used for">Display type: my name and section titles</td><td data-label="Creator">NaN</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Unbounded">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+          <tr><th scope="row">Geist</th><td class="use" data-label="Used for">Body text</td><td data-label="Creator">Vercel</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Geist">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+          <tr><th scope="row">Geist Mono</th><td class="use" data-label="Used for">HUD labels, clock, coordinates</td><td data-label="Creator">Vercel</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Geist+Mono">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+          <tr><th scope="row">Big Shoulders</th><td class="use" data-label="Used for">Display type on the Sky Sentry page</td><td data-label="Creator">Patric King</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Big+Shoulders">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+          <tr><th scope="row">Big Shoulders Stencil</th><td class="use" data-label="Used for">Display type on the Echo page</td><td data-label="Creator">Patric King</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Big+Shoulders+Stencil">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+          <tr><th scope="row">Special Elite</th><td class="use" data-label="Used for">Typewriter notes on the Echo page</td><td data-label="Creator">Astigmatic</td><td data-label="Source"><a href="https://fonts.google.com/specimen/Special+Elite">Google Fonts</a></td><td class="lic" data-label="Licence">SIL OFL 1.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cr-block" id="code" data-section="Code libraries">
+    <p class="label">06 · Code libraries</p>
+    <h2 class="display" data-split>Open-source code.</h2>
+    <div class="glass tbl" data-fade>
+      <table class="cr">
+        <caption>JavaScript libraries bundled with this site</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">three.js r147 (with GLTFLoader, RGBELoader, EffectComposer and other add-ons)</th><td class="use" data-label="Used for">All real-time 3D: the icy world, the ice blocks, the Sky Sentry and Echo scenes</td><td data-label="Creator">mrdoob and the three.js contributors</td><td data-label="Source"><a href="https://threejs.org">threejs.org</a></td><td class="lic" data-label="Licence">MIT</td></tr>
+          <tr><th scope="row">GSAP 3.13, with ScrollTrigger and SplitText</th><td class="use" data-label="Used for">Timelines, scroll-scrubbed animation and the line-by-line text reveals</td><td data-label="Creator">GreenSock (Webflow)</td><td data-label="Source"><a href="https://gsap.com">gsap.com</a></td><td class="lic" data-label="Licence">GSAP Standard no-charge licence</td></tr>
+          <tr><th scope="row">Lenis 1.1.18</th><td class="use" data-label="Used for">Smooth scrolling, synced to ScrollTrigger</td><td data-label="Creator">darkroom.engineering</td><td data-label="Source"><a href="https://github.com/darkroomengineering/lenis">github.com/darkroomengineering/lenis</a></td><td class="lic" data-label="Licence">MIT</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cr-block" id="added-later" data-section="Added later">
+    <p class="label">07 · Added later</p>
+    <h2 class="display" data-split>Added later.</h2>
+    <p class="intro" data-fade>Assets added to the site after the first version (film renders, new models, new textures and new voice lines) are listed here.</p>
+    <div class="later" data-fade>
+      <table class="cr">
+        <caption>Assets added after the first version</caption>
+        <thead><tr><th scope="col">Asset</th><th scope="col">Used for</th><th scope="col">Creator</th><th scope="col">Source</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <!--
+            ADDED LATER: put every new asset here as one row, in the same format as the tables above:
+            <tr><th scope="row">NAME</th><td class="use" data-label="Used for">WHAT IT IS USED FOR</td><td data-label="Creator">CREATOR</td><td data-label="Source"><a href="URL">SHORT URL</a></td><td class="lic" data-label="Licence">LICENCE</td></tr>
+            Keep the data-label attributes: phones use them as the labels when each row is stacked.
+            Examples of what belongs here: Blender Cycles film renders (pool, sky, echo descent), Poly Haven / ambientCG downloads,
+            Sketchfab models (CC-BY needs the author's name and a link), Mixamo characters and animations, new Kokoro voice lines.
+            When the first real row goes in, delete the "Nothing added yet" row below.
+          -->
+          <tr class="none"><td colspan="5">Nothing added yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="built" data-section="Built by">
+    <p class="label">Built by</p>
+    <h2 class="display" data-split>Made in Livingston, New Jersey.</h2>
+    <p class="lead" data-fade>Designed and built by Shreyansh Nikam. Thank you to every artist, recordist, type designer and developer above for sharing their work.</p>
+    <div class="btns" data-fade><a class="btn primary" href="projects.html">See my projects and achievements</a><a class="btn" href="index.html">Back to About me</a></div>
+  </section>
+</main>
+<footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html" aria-current="page">Credits</a></footer>
+
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/core.js"></script>
+<script>SITE.boot(Promise.resolve());</script>
+</body>
+</html>

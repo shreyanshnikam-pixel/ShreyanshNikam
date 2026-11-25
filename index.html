@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" class="js-off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shreyansh Nikam: I build things that have to work when it matters</title>
+<meta name="description" content="Shreyansh Nikam, a freshman at Livingston High School in New Jersey. Builder of Sky Sentry and Echo: four awards at two competitions this fall.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+.hero{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:110px var(--pad) 120px}
+.hero h1 .dot{color:var(--signal)}
+.hero .tagline{margin-top:28px;font-size:clamp(20px,1.8vw,26px);color:var(--ink);font-weight:500}
+.hero .tagline .rot{color:var(--deep)}
+.awards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:30px}
+.award{padding:22px}.award .lbl{color:var(--deep)}
+.award b{display:block;font:600 22px/1.15 var(--display);letter-spacing:-.02em;margin:10px 0 6px}
+@media (max-width:760px){.sec .copy{width:100%}.awards{grid-template-columns:1fr}}
+.pinwrap{min-height:260vh;align-items:flex-start}.pinwrap .copy{position:sticky;top:0;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:100px 0}
+.work{display:grid;gap:14px;margin-top:30px}.work .glass{padding:20px 22px}
+.work .num{font:500 11.5px/1 var(--mono);letter-spacing:.14em;color:var(--deep)}
+</style>
+</head>
+<body data-base="light">
+<a class="skip" href="#main">Skip to content</a>
+<div class="pre" role="status" aria-label="Loading">
+  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
+    <g id="arm"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+  </svg>
+  <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
+</div>
+<div class="flash" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="index.html">Shreyansh Nikam</a>
+  <nav class="nav" aria-label="Main">
+    <a href="index.html" aria-current="page">About me</a><a href="projects.html">Projects</a><a href="sky-sentry.html">Sky Sentry</a><a href="echo.html" class="opt">Echo</a>
+  </nav>
+  <div class="tools"><span class="hud clock" data-hud="clock"></span><button class="sound" type="button" aria-pressed="false"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="t">Sound off</span></button></div>
+</header>
+<div class="hudbar bl hud" aria-hidden="true"><span data-hud="sec">01 / 07</span><span data-hud="name">Hero</span></div>
+<div class="hudbar br hud" aria-hidden="true"><span data-hud="pct">000%</span></div>
+<div class="hudbar lv hud" aria-hidden="true">40.7876° N · 74.3274° W · Livingston, NJ</div>
+
+<canvas class="world" id="world" aria-hidden="true"></canvas>
+
+<main id="main">
+  <section class="hero" data-section="Hero">
+    <p class="hud" data-intro-fade>Freshman at Livingston High School, New Jersey</p>
+    <h1 class="display" data-intro>Shreyansh<br>Nikam<span class="dot">.</span></h1>
+    <p class="tagline" data-intro-fade>I build <span class="rot"><span>AI that warns airport towers about birds.</span><span>horror games you see with sound.</span><span>things that work end to end.</span></span></p>
+    <div class="kpis" data-intro-fade>
+      <div class="kpi"><div class="n" data-count="4">4</div><div class="d hud">awards this fall</div></div>
+      <div class="kpi"><div class="n" data-count="2">2</div><div class="d hud">competitions, both with awards</div></div>
+      <div class="kpi"><div class="n">1st</div><div class="d hud">prize, best overall</div></div>
+    </div>
+    <div class="btns" data-intro-fade><a class="btn primary" href="projects.html">See my projects and achievements</a><a class="btn" href="#about">Read about me</a></div>
+    <div class="cue" aria-hidden="true"><span class="hud">Scroll</span><span class="line"><svg class="flake" viewBox="-6 -6 12 12" stroke="#5E8AAB" stroke-width="1" fill="none"><path d="M0-5V5M-4.3-2.5L4.3 2.5M-4.3 2.5L4.3-2.5"/></svg></span></div>
+  </section>
+
+  <section class="sec" id="about" data-section="About me">
+    <div class="copy">
+      <p class="label">02 · About me</p>
+      <h2 class="display" data-split>I build things that have to work when it matters.</h2>
+      <p class="lead" data-fade style="margin-top:28px">I'm Shreyansh Nikam, a freshman at Livingston High School in New Jersey. I swim on the LHS team, help lead our school's Hack Club, and spend weekends at hackathons and game jams with a few friends. This fall I helped build Sky Sentry, an early-warning system that spots birds and drones near a runway, and Echo, a horror game where sound is the only way to see. Together they won four awards at two competitions, including first prize for best overall.</p>
+    </div>
+  </section>
+
+  <section class="sec right" data-section="The classroom">
+    <div class="copy">
+      <p class="label">03 · The classroom</p>
+      <h2 class="display" data-split>A high-rigor public school, taken at the highest level open to me.</h2>
+      <p class="lead" data-fade style="margin-top:24px">In 2025 the College Board placed Livingston High School on its AP School Honor Roll at the Platinum level, its highest tier.</p>
+      <div class="stats" data-stagger>
+        <div class="stat"><div class="n" data-count="39">39</div><div class="d">AP courses offered</div></div>
+        <div class="stat"><div class="n" data-count="13">13</div><div class="d">dual-enrollment courses</div></div>
+        <div class="stat"><div class="n" data-count="5">5</div><div class="d">academic pathways and selective programs</div></div>
+        <div class="stat"><div class="n" data-count="474">474</div><div class="d">AP Scholars in one year</div></div>
+      </div>
+      <p class="src">Sources: LHS School Profile 2024–2025. College Board, AP School Honor Roll, New Jersey, 2025.</p>
+    </div>
+  </section>
+
+  <section class="sec" data-section="Course levels">
+    <div class="copy">
+      <p class="label">04 · How LHS levels its courses</p>
+      <h2 class="display" data-split>AP. Honors. College Prep.</h2>
+      <p class="lead" data-fade style="margin-top:24px">Honors is the highest level a freshman can take. Four of my five are Honors.</p>
+      <ul class="list glass" data-fade aria-label="My schedule">
+        <li><span>English 1</span><span class="lvl">Honors</span></li>
+        <li><span>Modern World History</span><span class="lvl">Honors</span></li>
+        <li><span>Geometry</span><span class="lvl">Honors</span></li>
+        <li><span>Biology</span><span class="lvl">Honors</span></li>
+        <li><span>French 2</span><span class="lvl">College Prep</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec right" data-section="Beyond the classroom">
+    <div class="copy" style="width:min(820px,60vw)">
+      <p class="label">05 · Beyond the classroom</p>
+      <h2 class="display" data-split>Practice in the pool. Code on weekends.</h2>
+      <div class="cards" data-stagger>
+        <article class="glass tilt"><p class="hud">Athletics</p><h3>LHS Swim</h3><p class="muted">I swim for Livingston High School, training through the season on top of a full Honors schedule.</p></article>
+        <article class="glass tilt"><p class="hud">Leadership</p><h3>LHS Hack Club, Vice President</h3><p class="muted">One of the leaders of a first-year club of 30 to 50 students who build software and hardware, run workshops and go to hackathons.</p></article>
+        <article class="glass tilt"><p class="hud">Competitions</p><h3>Hackathons and game jams</h3><p class="muted">Two events this fall, two winning projects, built with Atharv, Pranav, Vivan and Elias.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec pinwrap" id="awards" data-section="Awards">
+    <div class="copy">
+      <p class="label">06 · Fall 2026</p>
+      <h2 class="display" data-split>Two competitions. Four awards.</h2>
+      <div class="awards" data-stagger>
+        <div class="award glass"><span class="hud lbl">Sky Sentry · HackPHS, October 2026</span><b>Best Use of Solana</b></div>
+        <div class="award glass"><span class="hud lbl">Sky Sentry · HackPHS, October 2026</span><b>Best Use of TigerData</b></div>
+        <div class="award glass"><span class="hud lbl">Sky Sentry · HackPHS, October 2026</span><b>Overall, 5th place</b></div>
+        <div class="award glass"><span class="hud lbl">Echo · Hack Club Haven Princeton, November 14 to 15, 2026</span><b>1st prize, best overall</b></div>
+      </div>
+      <div class="btns"><a class="btn" href="sky-sentry.html">Watch the Sky Sentry film</a><a class="btn" href="echo.html">Enter the Hollow</a></div>
+    </div>
+  </section>
+
+  <section class="sec right" data-section="How I work">
+    <div class="copy">
+      <p class="label">07 · How I work</p>
+      <h2 class="display" data-split>Any team. End to end. Tested before done.</h2>
+      <div class="work" data-stagger>
+        <div class="glass tilt"><span class="num">01</span><h3 style="margin-top:8px">Any team, any stack</h3><p class="muted" style="margin:0">From an AI and blockchain backend to a game engine, with different teammates each time.</p></div>
+        <div class="glass tilt"><span class="num">02</span><h3 style="margin-top:8px">End to end</h3><p class="muted" style="margin:0">I like building the whole path, from the camera frame to the spoken alert in the tower.</p></div>
+        <div class="glass tilt"><span class="num">03</span><h3 style="margin-top:8px">Tested before done</h3><p class="muted" style="margin:0">Sky Sentry runs even with no API keys. After my cleanup of Echo, I ran the game again to make sure nothing broke.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec center" data-section="Outro">
+    <div class="copy">
+      <h2 class="display" data-split>Two projects. One fall.</h2>
+      <p class="lead" data-fade style="margin-top:24px">Watch Sky Sentry catch a flock before it reaches the runway, then walk into the mine from Echo.</p>
+      <div class="btns" style="justify-content:center"><a class="btn primary" href="projects.html">See my projects and achievements</a></div>
+    </div>
+  </section>
+</main>
+<footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html">Credits</a></footer>
+
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/vendor/three-bundle.js"></script><script src="js/kit.js"></script>
+<script src="js/world.js"></script>
+</body>
+</html>

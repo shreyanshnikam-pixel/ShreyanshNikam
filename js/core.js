@@ -106,10 +106,11 @@
   // ---- preloader: counter 000 to 100 while an ice crystal grows, then a white flash and the title rises ----
   SITE.boot = (loadPromise, onDone) => {
     const pre = document.querySelector('.pre'), cnt = pre && pre.querySelector('.count'), crystal = pre && pre.querySelectorAll('.cr');
-    let shown = 0, target = 0;
+    let shown = 0, target = 0, lastT = performance.now();
     if (crystal) crystal.forEach((p) => { const L = p.getTotalLength ? p.getTotalLength() : 100; p.style.strokeDasharray = L; p.style.strokeDashoffset = L; });
     const step = () => {
-      shown += (target - shown) * 0.08; if (target >= 1 && shown > 0.995) shown = 1;
+      const now = performance.now(), dtt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
+      shown = Math.min(target, shown + dtt * (target >= 1 ? 1.6 : 0.9)); if (target >= 1 && shown > 0.995) shown = 1;
       if (cnt) cnt.textContent = String(Math.round(shown * 100)).padStart(3, '0');
       if (crystal) crystal.forEach((p, i) => { const L = parseFloat(p.style.strokeDasharray), k = Math.min(1, Math.max(0, shown * 1.25 - i * 0.04)); p.style.strokeDashoffset = L * (1 - k); });
       if (shown < 1) requestAnimationFrame(step); else finish();

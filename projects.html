@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" class="js-off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projects: Sky Sentry and Echo | Shreyansh Nikam</title>
+<meta name="description" content="Two projects from fall 2026: Sky Sentry (HackPHS: Best Use of Solana, Best Use of TigerData, 5th place overall) and Echo (Hack Club Haven Princeton: 1st prize, best overall).">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+.js-off .pre{display:none}
+/* ---- the stage: two ice blocks in 3D, with real links laid over them ---- */
+.pstage{position:relative;height:100vh;height:100svh;min-height:680px;padding:100px var(--pad) 66px;display:flex;flex-direction:column;overflow:hidden}
+.pstage .pgl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;pointer-events:none}
+.pstage .head{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;pointer-events:none}
+.pstage .head a{pointer-events:auto}
+.pstage h1.display{font-size:clamp(46px,6.4vw,112px)}
+.pstage h1 .dot{color:var(--deep)}
+.pstage .hint{text-align:right;max-width:30ch}
+.blks{position:relative;z-index:2;flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,5vw,96px);margin-top:clamp(16px,2.4vh,30px)}
+.blk{display:flex;flex-direction:column;min-height:0;color:inherit;text-decoration:none;border-radius:22px}
+.blk .space{position:relative;flex:1;min-height:0}
+.blk .cap{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-top:14px;border-top:1px solid var(--glacier);transition:opacity .6s var(--ease)}
+.blk .cap .meta{display:block;margin-bottom:8px}
+.blk .cap .name{display:block;font:600 clamp(22px,2.3vw,36px)/1 var(--display);letter-spacing:-.03em}
+.blk .go{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--glacier);background:rgba(255,255,255,.6);font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;transition:background .5s var(--ease),color .5s var(--ease),border-color .5s var(--ease)}
+.blk .go i{display:inline-block;font-style:normal;transition:transform .6s var(--ease)}
+.blk.on .go{background:var(--signal);border-color:var(--signal);color:#fff}
+.blk.on .go i{transform:translateX(4px)}
+.blk.dim .cap{opacity:.55}
+.blk:focus-visible{outline-offset:6px}
+/* the awards etched in each block: real text; drawn inside the ice when WebGL runs, shown as a frosted block when it does not */
+.etch{list-style:none;margin:0;padding:0}
+html:not(.gl) .blk .space{display:grid;place-items:center;margin:10px 0 18px}
+html:not(.gl) .etch{width:min(100%,340px);height:100%;max-height:420px;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:28px;border-radius:18px;background:linear-gradient(160deg,rgba(255,255,255,.85),rgba(202,215,226,.55));border:1px solid #fff;box-shadow:0 30px 80px -40px rgba(15,27,38,.4),inset 0 1px 0 #fff}
+html:not(.gl) .etch li{font:600 18px/1.2 var(--display);letter-spacing:-.02em}
+html:not(.gl) .etch li span{display:block;font:500 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--deep);margin-bottom:4px}
+html.gl .etch{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* ---- details ---- */
+.pdetail{position:relative;padding:130px var(--pad) 110px}
+.pdetail h2.display{font-size:clamp(36px,5vw,84px)}
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:46px}
+.proj{padding:clamp(24px,3vw,42px);display:flex;flex-direction:column}
+.proj h3.display{font-size:clamp(32px,3.6vw,58px);line-height:.95;margin:14px 0 22px}
+.proj .one{font-size:clamp(18px,1.4vw,20px);line-height:1.55}
+.proj .awl{margin:18px 0 10px}
+.proj .aw{list-style:none;margin:0;padding:0;border-top:1px solid var(--glacier)}
+.proj .aw li{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 0;border-bottom:1px solid var(--glacier);font-weight:500}
+.proj .aw li .hud{white-space:nowrap}
+.proj .credit{margin:22px 0 0;font-size:15.5px;color:var(--slate)}
+.proj .btns{margin-top:auto;padding-top:30px}
+.proj .btn{min-height:48px;padding:0 20px;font-size:14.5px}
+@media (max-width:900px){.pgrid{grid-template-columns:1fr}}
+@media (max-width:760px){
+  .pstage{min-height:720px;padding:84px var(--pad) 46px}
+  .pstage .head{flex-direction:column;align-items:flex-start;gap:10px}
+  .pstage .hint{display:none}
+  .blks{grid-template-columns:1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:18px}
+  .blk .cap{padding-top:10px}
+  .blk .cap .meta{margin-bottom:6px;font-size:10.5px;letter-spacing:.1em}
+  .proj .aw li{flex-direction:column;gap:4px}
+  .proj .aw li .hud{white-space:normal}
+}
+</style>
+</head>
+<body data-base="light">
+<a class="skip" href="#main">Skip to content</a>
+<div class="pre" role="status" aria-label="Loading">
+  <svg viewBox="-60 -60 120 120" aria-hidden="true" fill="none" stroke="#5E8AAB" stroke-width="1.2" stroke-linecap="round">
+    <g><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(60)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(120)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(180)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(240)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+    <g transform="rotate(300)"><path class="cr" d="M0 0 L0 -52"/><path class="cr" d="M0 -18 L-9 -28 M0 -18 L9 -28"/><path class="cr" d="M0 -32 L-7 -40 M0 -32 L7 -40"/><path class="cr" d="M0 -44 L-4 -49 M0 -44 L4 -49"/></g>
+  </svg>
+  <span class="count">000</span><span class="tag hud">Livingston, NJ</span>
+</div>
+<div class="flash" aria-hidden="true"></div>
+
+<header class="hdr">
+  <a class="brand" href="index.html">Shreyansh Nikam</a>
+  <nav class="nav" aria-label="Main">
+    <a href="index.html">About me</a><a href="projects.html" aria-current="page">Projects</a><a href="sky-sentry.html">Sky Sentry</a><a href="echo.html" class="opt">Echo</a>
+  </nav>
+  <div class="tools"><span class="hud clock" data-hud="clock"></span><button class="sound" type="button" aria-pressed="false"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="t">Sound off</span></button></div>
+</header>
+<div class="hudbar bl hud" aria-hidden="true"><span data-hud="sec">01 / 02</span><span data-hud="name">Two blocks of ice</span></div>
+<div class="hudbar br hud" aria-hidden="true"><span data-hud="pct">000%</span></div>
+<div class="hudbar lv hud" aria-hidden="true">40.7876° N · 74.3274° W · Livingston, NJ</div>
+
+<main id="main">
+  <section class="pstage" data-section="Two blocks of ice" aria-labelledby="ptitle">
+    <canvas class="pgl" id="pgl" aria-hidden="true"></canvas>
+    <div class="head">
+      <div>
+        <p class="hud" data-intro-fade>Fall 2026 · Two competitions, four awards</p>
+        <h1 class="display" id="ptitle" data-intro>Projects<span class="dot">.</span></h1>
+      </div>
+      <p class="hud hint" data-intro-fade>Hover a block to crack the ice. Choose one to fly in.</p>
+    </div>
+    <div class="blks">
+      <a class="blk" href="sky-sentry.html" data-i="0">
+        <div class="space">
+          <ul class="etch">
+            <li><span>HackPHS, October 2026</span>Best Use of Solana</li>
+            <li><span>HackPHS, October 2026</span>Best Use of TigerData</li>
+            <li><span>HackPHS, October 2026</span>5th place overall</li>
+          </ul>
+        </div>
+        <div class="cap">
+          <span><span class="hud meta">01 · HackPHS · October 2026</span><span class="name">Sky Sentry</span></span>
+          <span class="go" aria-hidden="true">Fly in <i>→</i></span>
+        </div>
+      </a>
+      <a class="blk" href="echo.html" data-i="1">
+        <div class="space">
+          <ul class="etch">
+            <li><span>Hack Club Haven Princeton, November 14 to 15, 2026</span>1st prize, best overall</li>
+          </ul>
+        </div>
+        <div class="cap">
+          <span><span class="hud meta">02 · Hack Club Haven Princeton · Nov 2026</span><span class="name">Echo</span></span>
+          <span class="go" aria-hidden="true">Fly in <i>→</i></span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="pdetail" id="details" data-section="Details">
+    <p class="label">Fall 2026 · Details</p>
+    <h2 class="display" data-split>Two projects, four awards.</h2>
+    <div class="pgrid" data-stagger>
+      <article class="proj glass tilt" aria-labelledby="p-sky">
+        <p class="hud">01 · HackPHS · October 2026</p>
+        <h3 class="display" id="p-sky">Sky Sentry</h3>
+        <p class="one">A phone camera spots birds and drones near a runway, and the control tower hears the warning out loud.</p>
+        <p class="hud awl">Awards</p>
+        <ul class="aw">
+          <li><span>Best Use of Solana</span><span class="hud">HackPHS 2026</span></li>
+          <li><span>Best Use of TigerData</span><span class="hud">HackPHS 2026</span></li>
+          <li><span>5th place overall</span><span class="hud">HackPHS 2026</span></li>
+        </ul>
+        <p class="credit">Built with Atharv Sharma, Vivan Chowdhury, and Pranav Atreya at HackPHS 2026</p>
+        <div class="btns">
+          <a class="btn" href="sky-sentry.html">Open Sky Sentry</a>
+          <a class="btn" href="https://lancerhacks-rvs8r.ondigitalocean.app" target="_blank" rel="noopener">Live site <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+          <a class="btn" href="https://github.com/pranav-atreya10/hackphs-dot" target="_blank" rel="noopener">Code <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+        </div>
+      </article>
+      <article class="proj glass tilt" aria-labelledby="p-echo">
+        <p class="hud">02 · Hack Club Haven Princeton · November 14 to 15, 2026</p>
+        <h3 class="display" id="p-echo">Echo</h3>
+        <p class="one">A horror game where sound is the only way to see, and every ping tells the monsters where you are.</p>
+        <p class="hud awl">Award</p>
+        <ul class="aw">
+          <li><span>1st prize, best overall</span><span class="hud">Hack Club Haven Princeton 2026</span></li>
+        </ul>
+        <p class="credit">Built with Atharv Sharma and Elias Chen at Hack Haven Princeton 2026</p>
+        <div class="btns">
+          <a class="btn" href="echo.html">Enter Echo</a>
+          <a class="btn" href="https://burthebear.itch.io/echo-hack-haven-princeton" target="_blank" rel="noopener">Play <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+          <a class="btn" href="https://github.com/BurTheBear/HackHaven" target="_blank" rel="noopener">Code <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+        </div>
+      </article>
+    </div>
+  </section>
+</main>
+<footer class="foot hud"><span>Shreyansh Nikam, Livingston High School, New Jersey</span><a class="ul" href="credits.html">Credits</a></footer>
+
+<script src="js/vendor/gsap.min.js"></script><script src="js/vendor/ScrollTrigger.min.js"></script><script src="js/vendor/SplitText.min.js"></script><script src="js/vendor/lenis.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/vendor/three-bundle.js"></script><script src="js/kit.js"></script>
+<script src="js/projects.js"></script>
+</body>
+</html>
