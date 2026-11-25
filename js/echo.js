@@ -10,9 +10,15 @@
   // ---------- DOM-only parts (run with reduced motion too) ----------
   const grid = document.querySelector('[data-commits]');
   if (grid) for (let i = 0; i < 89; i++) { const c = document.createElement('i'); if (i < 18) c.className = 'me'; grid.appendChild(c); }
-  const states = document.querySelectorAll('[data-loop] li'), arc = document.querySelector('[data-arc]');
+  const states = document.querySelectorAll('[data-loop] li'), ringNodes = document.querySelectorAll('[data-loopring] li'), arc = document.querySelector('[data-arc]');
   if (states.length) {
-    let k = 0; const step = () => { states.forEach((li, i) => li.classList.toggle('on', i === k)); if (arc) arc.setAttribute('stroke-dasharray', `${(k + 1) / 5 * 238.8} 239`); k = (k + 1) % 5; };
+    let k = 0;
+    const step = () => {
+      states.forEach((li, i) => li.classList.toggle('on', i === k));
+      ringNodes.forEach((li, i) => li.classList.toggle('on', i === k));
+      if (arc) arc.setAttribute('stroke-dasharray', `${(k + 1) / 5 * 238.8} 239`);
+      k = (k + 1) % 5;
+    };
     step(); if (!S0.rm) setInterval(step, 1800);
   }
   const soundBtns = document.querySelectorAll('[data-sound-on]');
@@ -22,9 +28,13 @@
   const film = document.getElementById('hollow'), cv = document.getElementById('echo-canvas'), after = document.querySelector('.after');
   if (!S0.glOk || S0.rm || !film || !cv) { S0.boot(document.fonts ? document.fonts.ready : null); return; }
 
-  const ovl = film.querySelector('.ovl2'), caps = Array.from(film.querySelectorAll('.cap[data-a]')), capCaught = film.querySelector('[data-caught]');
+  const ovl = film.querySelector('.ovl2'), descentCv = document.getElementById('echo-frames'), caps = Array.from(film.querySelectorAll('.cap[data-a]')), capCaught = film.querySelector('[data-caught]');
   const chs = Array.from(film.querySelectorAll('[data-ch]')), bar = film.querySelector('[data-bar]'), pingBtn = film.querySelector('[data-ping]');
   const hint = film.querySelector('[data-hint]'), loadingEl = film.querySelector('[data-loading]');
+  let descentPl = null;
+  if (window.FilmPlayer && descentCv) {
+    window.FilmPlayer.load(descentCv, 'assets/films/echo_descent/manifest.json').then((pl) => { if (pl) descentPl = pl; }).catch(() => {});
+  }
 
   // ---------- renderer, scene, post ----------
   const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
@@ -38,8 +48,8 @@
   const gov = FK.governor(R, P.c, size); gov.max = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2);
   const bufSize = new T.Vector2();
   const mirRT = new T.WebGLRenderTarget(16, 16, { type: T.HalfFloatType });
-  const onResize = () => { const s = size(); C.aspect = s[0] / s[1]; C.fov = C.aspect < 0.8 ? 72 : 58; C.updateProjectionMatrix(); gov.apply(); G.uRes.value.set(s[0], s[1]); if (P.bloom) P.bloom.resolution.set(s[0] / 2, s[1] / 2); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 1), Math.max(2, bufSize.y >> 1)); };
-  const _apply = gov.apply; gov.apply = () => { _apply(); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 1), Math.max(2, bufSize.y >> 1)); };
+  const onResize = () => { const s = size(); C.aspect = s[0] / s[1]; C.fov = C.aspect < 0.8 ? 72 : 58; C.updateProjectionMatrix(); gov.apply(); G.uRes.value.set(s[0], s[1]); if (P.bloom) P.bloom.resolution.set(s[0] / 2, s[1] / 2); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
+  const _apply = gov.apply; gov.apply = () => { _apply(); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
   window.addEventListener('resize', onResize); onResize();
 
   // ---------- the path: a floor line from the crevasse, down the ice chute, through the mine ----------
@@ -69,21 +79,29 @@
     uTr: { value: new T.Vector2(S_ROCK0, S_ROCK1) }, uDeep: { value: 0.3 }, uGlow: { value: 0.0 }, uRim: { value: 0 } };
   const NOISE = 'float eh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }\nfloat en(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mix(eh(i),eh(i+vec3(1,0,0)),f.x),mix(eh(i+vec3(0,1,0)),eh(i+vec3(1,1,0)),f.x),f.y),mix(mix(eh(i+vec3(0,0,1)),eh(i+vec3(1,0,1)),f.x),mix(eh(i+vec3(0,1,1)),eh(i+vec3(1,1,1)),f.x),f.y),f.z); }';
   const PING = [
-    '{ vec3 pc = vec3(0.62, 0.80, 1.0); float aoK = 1.0;',
+    '{ vec3 pc = vec3(0.66, 0.84, 1.0); float aoK = 1.0;',
     '#ifdef USE_AOMAP', ' aoK = ambientOcclusion;', '#endif',
     '  vec3 Vv = normalize(vViewPosition);',
+    '  float ndv = clamp(dot(normal, Vv), 0.0, 1.0);',
+    '  float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);',
     '  for (int i = 0; i < 2; i++) {',
     '    float A = uPA[i]; if (A < 0.002) continue;',
     '    float dw = distance(vWP, uPP[i].xyz), R = uPP[i].w;',
-    '    float ring = exp(-pow((dw - R) / 1.25, 2.0));',
-    '    float trail = smoothstep(R + 0.6, R - 2.0, dw) * (0.22 + 0.6 * exp(-max(R - dw, 0.0) * 0.12));',
+    '    float ring = exp(-pow((dw - R) / 1.05, 2.0));',
+    '    float trail = smoothstep(R + 0.45, R - 1.9, dw) * (0.20 + 0.65 * exp(-max(R - dw, 0.0) * 0.14));',
     '    vec3 L = uPV[i] + vViewPosition; L /= max(length(L), 1e-3);',
-    '    float lam = max(dot(normal, L), 0.0) * 0.8 + 0.2;',
-    '    float fall = 1.0 / (1.0 + dw * 0.07);',
-    '    float sp = pow(max(dot(normal, normalize(L + Vv)), 0.0), 40.0) * (1.0 - roughnessFactor) * 4.0;',
-    '    float e = (ring * 4.5 + trail) * A * fall;',
-    '    outgoingLight += (diffuseColor.rgb * lam * aoK + sp) * pc * e;',
-    '    outgoingLight += pc * ring * A * fall * 0.035;',
+    '    float ndl = dot(normal, L);',
+    '    float horizonShadow = smoothstep(-0.12, 0.25, ndl);',
+    '    float lam = max(ndl, 0.0) * horizonShadow * 0.88 + 0.12 * aoK;',
+    '    float fall = 1.0 / (1.0 + 0.065 * dw + 0.0042 * dw * dw);',
+    '    vec3 H = normalize(L + Vv);',
+    '    float ndh = max(dot(normal, H), 0.0);',
+    '    float rough = clamp(roughnessFactor, 0.06, 0.98);',
+    '    float specPow = mix(128.0, 14.0, rough * rough);',
+    '    float sp = pow(ndh, specPow) * (1.0 - rough * 0.85) * (1.4 + fres * 4.5) * horizonShadow;',
+    '    float e = (ring * 5.2 + trail) * A * fall;',
+    '    outgoingLight += (diffuseColor.rgb * lam * aoK + sp * 0.85) * pc * e;',
+    '    outgoingLight += pc * ring * A * fall * (0.025 + 0.055 * fres);',
     '  }',
     '}'].join('\n');
   const RIM = '{ float fr = 1.0 - abs(dot(normal, normalize(vViewPosition))); outgoingLight += vec3(1.0, 0.03, 0.03) * fr * fr * uRim; }';
@@ -194,7 +212,7 @@
     }
 
     // ---- the mine ----
-    const rockGeo = tubeGeo(S_ROCK0, LT, mobile ? 300 : 520, mobile ? 44 : 64, {});
+    const rockGeo = tubeGeo(S_ROCK0, LT, mobile ? 200 : 340, mobile ? 32 : 44, {});
     const rockM = sonar(new T.MeshStandardMaterial({ map: tex('dark_rock_02_diff', true), normalMap: tex('dark_rock_02_nor'), aoMap: tex('dark_rock_02_ao'), normalScale: new T.Vector2(1.6, 1.6), roughness: 0.9, color: 0x9a948e, side: T.DoubleSide }), 'rock', { diss: 1 });
     const mudM = sonar(new T.MeshStandardMaterial({ map: tex('brown_mud_03_diff', true), normalMap: tex('brown_mud_03_nor'), roughness: 0.62, color: 0x7a6e64, side: T.DoubleSide }), 'mud', { diss: 1 });
     const rock = world.rock = new T.Mesh(rockGeo, [rockM, mudM]); S.add(rock);
@@ -278,10 +296,14 @@
     world.WU = WU;
     const waterFrag = (mir) => ['{ vec2 suv = gl_FragCoord.xy / uRes; vec2 off = vec2(0.0); float rip = 0.0;',
       ' for (int i = 0; i < 4; i++) { vec2 d = vWP.xz - uDrip[i].xy; float r = length(d), age = uTime - uDrip[i].z, R = age * 0.42;',
-      '   float w = sin((r - R) * 42.0) * exp(-pow((r - R) / 0.14, 2.0)) * exp(-age * 1.4) * step(0.0, age); off += d / max(r, 1e-3) * w * 0.01; rip += abs(w); }',
-      ' float fres = 0.08 + 0.92 * pow(1.0 - clamp(dot(normalize(vViewPosition), vec3(viewMatrix * vec4(0.0, 1.0, 0.0, 0.0))), 0.0, 1.0), 4.0);',
-      mir ? ' vec3 refl = texture2D(uMir, suv + off).rgb; outgoingLight += refl * mix(0.45, 1.0, fres) * uMirOn;' : '',
-      ' for (int i = 0; i < 2; i++) { float dw = distance(vWP, uPP[i].xyz); outgoingLight += vec3(0.62, 0.8, 1.0) * rip * uPA[i] * 0.4 / (1.0 + dw * 0.1); }', '}'].join('\n');
+      '   float w = sin((r - R) * 42.0) * exp(-pow((r - R) / 0.14, 2.0)) * exp(-age * 1.4) * step(0.0, age); off += d / max(r, 1e-3) * w * 0.012; rip += abs(w); }',
+      ' vec3 Vw = normalize(vViewPosition); vec3 Nw = normalize(vec3(viewMatrix * vec4(off.x * 16.0, 1.0, off.y * 16.0, 0.0)));',
+      ' float fres = 0.02 + 0.98 * pow(1.0 - clamp(dot(Vw, Nw), 0.0, 1.0), 5.0);',
+      mir ? ' vec3 refl = texture2D(uMir, clamp(suv + off, vec2(0.002), vec2(0.998))).rgb; outgoingLight += refl * mix(0.38, 1.0, fres) * uMirOn;' : '',
+      ' for (int i = 0; i < 2; i++) { float A = uPA[i]; if (A < 0.002) continue; float dw = distance(vWP, uPP[i].xyz), R = uPP[i].w;',
+      '   vec3 Lw = normalize(uPV[i] + vViewPosition); float spw = pow(max(dot(Nw, normalize(Lw + Vw)), 0.0), 96.0);',
+      '   float ringW = exp(-pow((dw - R) / 1.1, 2.0));',
+      '   outgoingLight += vec3(0.66, 0.84, 1.0) * (rip * 0.48 + spw * (0.45 + 1.8 * fres) * (ringW * 2.2 + 0.35)) * A / (1.0 + 0.07 * dw + 0.004 * dw * dw); }', '}'].join('\n');
     const waterDecl = 'uniform sampler2D uMir; uniform vec2 uRes; uniform float uMirOn, uTime; uniform vec4 uDrip[4];';
     const waterM = sonar(new T.MeshStandardMaterial({ color: 0x020304, roughness: 0.05, metalness: 0.1, transparent: false }), 'water', { uniforms: WU, decl: waterDecl, frag: waterFrag(true) });
     const water = world.water = new T.Mesh(ribbon(S_FLOOD0, S_FLOOD1, 2.15, hY, 80), waterM); S.add(water);
@@ -403,9 +425,10 @@
     dirs.forEach((d0) => {
       const d = d0.clone().normalize().applyQuaternion(q); ray.set(C.position, d); ray.far = 120;
       const h = ray.intersectObject(world.col, false)[0]; if (!h) return;
-      const dist = h.distance, delay = 2 * dist / 343 + 0.012, vol = (soft ? 0.18 : 0.55) * Math.exp(-dist * 0.035) / (1 + dist * 0.1);
-      play('ping', { pos: h.point, when: delay, vol, rate: 0.97 - Math.min(0.12, dist * 0.002), lp: 300 + 7000 * Math.exp(-dist * 0.03) });
-      if (dist > 14) play('ping', { pos: h.point, when: delay * 2.05, vol: vol * 0.3, rate: 0.93, lp: 260 + 3000 * Math.exp(-dist * 0.03) });
+      const dist = h.distance, delay = 2 * dist / 343;
+      const vol = (soft ? 0.18 : 0.58) * Math.exp(-dist * 0.028) / (1 + 0.08 * dist + 0.005 * dist * dist);
+      play('ping', { pos: h.point, when: delay, vol, rate: 0.98 - Math.min(0.1, dist * 0.0018), lp: 350 + 8500 * Math.exp(-dist * 0.042) });
+      if (dist > 10) play('ping', { pos: h.point, when: delay * 2.02, vol: vol * 0.28, rate: 0.94, lp: 260 + 3400 * Math.exp(-dist * 0.042) });
     });
   }
 
@@ -508,12 +531,12 @@
   }
 
   // ---------- main loop ----------
-  let last = 0, t0 = performance.now(), ready = false, visible = true;
+  let last = 0, t0 = performance.now(), ready = false, visible = true, frameN = 0;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
   function loopF(now) {
     requestAnimationFrame(loopF);
     if (!visible || !ready) return;
-    const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; const t = (now - t0) / 1000;
+    const dt = cl((now - (last || now)) / 1000, 0.0005, 0.05); last = now; const t = (now - t0) / 1000;
     gov.tick(now);
     const pRaw = filmP(), aRaw = afterP();
     const nextMode = pRaw >= 0.999 && aRaw > 0.02 ? 'after' : 'film';
@@ -568,6 +591,7 @@
     S.background.copy(BLACK).lerp(SKY, Math.pow(Lf, 2.2)); S.fog.color.copy(BLACK).lerp(DEEPICE, ss(0.05, 0.5, Lf)).lerp(SKY, ss(0.55, 1, Lf));
     S.fog.density = lerp(0.034, 0.012, Lf);
     world.iceTube.visible = mode === 'film' && camS < S_ROCK1 + 6; world.ground.visible = world.iceTube.visible;
+    ovl.classList.toggle('active', mode === 'film' && p > 0.015);
     ovl.classList.toggle('lit', mode === 'film' && p < 0.075);
     if (P.bloom) { P.bloom.threshold = lerp(0.55, 1.4, Lf); P.bloom.strength = lerp(0.75, 0.35, Lf); }
     world.DU.uSnow.value = mode === 'film' ? ss(0.4, 0.8, Lf) : 0;
@@ -581,7 +605,7 @@
       if (scareAt && now > scareAt && !scaring && p > 0.77) { scareAt = 0; triggerScare(); }
     }
     if (mode === 'after' && now - lastPing > 4200) ping(0.55);
-    if (scaring && p < 0.76 && mode === 'film') resetScare();
+    if (p < 0.76 && mode === 'film') { if (scaring || scareAt) resetScare(); }
     if (caught && p < 0.76) caught = false;
     holdK = mode === 'film' ? ss(0.675, 0.69, p) * (1 - ss(0.8, 0.82, p)) : 0;
     fear = mode === 'film' ? Math.max(ss(0.5, 0.68, p) * 0.55, holdK) : 0;
@@ -652,17 +676,30 @@
     hint.classList.toggle('on', holdK > 0.5 && !scaring);
 
     // ---- render ----
-    world.DU.uT.value = t; world.DU.uScale.value = bufSize.y; world.DU.uCam.value.copy(C.position);
-    const wantMirror = world.water && Math.abs(camS - (S_FLOOD0 + S_FLOOD1) / 2) < 42 && camS < S_FLOOD1 + 2 && blk < 0.99;
-    world.WU.uMirOn.value = wantMirror ? 1 : 0; if (wantMirror) renderMirror();
-    P.c.render(dt);
+    const useDescentFilm = !!(descentPl && mode === 'film' && p < 0.24);
+    ovl.classList.toggle('descent-film', useDescentFilm);
+    if (useDescentFilm) {
+      descentPl.draw(cl(p / 0.24, 0, 1));
+    } else {
+      world.DU.uT.value = t; world.DU.uScale.value = bufSize.y; world.DU.uCam.value.copy(C.position);
+      const wantMirror = world.water && Math.abs(camS - (S_FLOOD0 + S_FLOOD1) / 2) < 42 && camS < S_FLOOD1 + 2 && blk < 0.99;
+      world.WU.uMirOn.value = wantMirror ? 1 : 0; if (wantMirror && (snap || (frameN % 2 === 0))) renderMirror();
+      frameN++;
+      P.c.render(dt);
+    }
     pPrev = p; snap = Math.max(0, snap - 1);
   }
 
   // ping button: during the hold it gives you away
   const userPing = () => { if (!ready || scaring) return; const p = filmP(); if (mode === 'film' && p > 0.675 && p < 0.84 && !caught) { ping(); scareAt = performance.now() + 650; return; } ping(); };
   pingBtn.addEventListener('click', userPing);
-  window.addEventListener('keydown', (e) => { if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) userPing(); });
+  window.addEventListener('keydown', (e) => {
+    if ((e.key !== 'p' && e.key !== 'P') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag && /INPUT|TEXTAREA|SELECT/.test(tag)) return;
+    const p = filmP();
+    if (mode === 'film' && p > 0.27 && p < 0.86) userPing();
+  });
 
   // ---------- test hooks ----------
   window.echo = {
@@ -675,7 +712,7 @@
   // ---------- boot ----------
   const load = Promise.all([
     fetchJSON('assets/echo-core.json', 0.02, 0.85).then((d) => { D = d; return build(); }),
-    new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; const pm = new T.PMREMGenerator(R); S.environment = pm.fromEquirectangular(tx).texture; res(); }, undefined, () => res())),
+    new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; const pm = new T.PMREMGenerator(R); S.environment = pm.fromEquirectangular(tx).texture; tx.dispose(); pm.dispose(); res(); }, undefined, () => res())),
     document.fonts ? document.fonts.ready : null,
   ]).then(() => { try { R.compile(S, C); } catch (e) { /* first frame compiles */ } ready = true; if (loadingEl) loadingEl.classList.add('off'); if (S0.soundOn) audioStart(); loadScare(); })
     .catch((e) => { console.error(e); if (loadingEl) loadingEl.textContent = 'The mine failed to load. Scroll on to read about Echo.'; });
