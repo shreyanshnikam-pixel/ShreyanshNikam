@@ -87,7 +87,16 @@
     '  }',
     '}'].join('\n');
   const RIM = '{ float fr = 1.0 - abs(dot(normal, normalize(vViewPosition))); outgoingLight += vec3(1.0, 0.03, 0.03) * fr * fr * uRim; }';
-  const ICEFX = '{ float dep = smoothstep(-24.0, 0.5, vWP.y); outgoingLight *= mix(uDeep, 1.0, dep); outgoingLight += vec3(0.42, 0.62, 0.78) * uGlow * mix(0.18, 1.0, dep); }';
+  // ice: light scattered down from the surface (bright near the top, deep blue below), annual layers, bubbles and veins
+  const ICEFX = ['{ float dep = smoothstep(-27.0, 0.8, vWP.y);',
+    '  vec3 sss = mix(vec3(0.01, 0.035, 0.07), vec3(0.16, 0.36, 0.52), smoothstep(0.0, 0.55, dep)); sss = mix(sss, vec3(0.78, 0.9, 0.98), smoothstep(0.55, 1.0, dep));',
+    '  float nb = en(vWP * vec3(0.5, 0.9, 0.5));',
+    '  float bands = 0.72 + 0.28 * sin(vWP.y * 2.6 + nb * 7.0);',
+    '  float veins = smoothstep(0.6, 0.72, en(vWP * vec3(0.7, 2.6, 0.7))) * 0.7 + smoothstep(0.66, 0.7, en(vWP * 4.1 + 3.0)) * 0.4;',
+    '  float cloudy = en(vWP * 1.7 + 11.0);',
+    '  float fr = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.0);',
+    '  outgoingLight *= mix(uDeep, 1.0, dep);',
+    '  outgoingLight += sss * uGlow * (bands * (0.75 + 0.5 * cloudy) + veins + fr * 0.6); }'].join('\n');
   const diss = (rock) => 'float dk = clamp((vS - uTr.x) / (uTr.y - uTr.x), 0.0, 1.0) * 1.3 - 0.15; float dn = en(vWP * 0.8) * 0.65 + en(vWP * 2.9) * 0.35; if (' + (rock ? 'dn >= dk' : 'dn < dk') + ') discard;';
   const sonar = (mat, key, o) => {
     o = o || {}; mat.envMapIntensity = o.env != null ? o.env : 0;
@@ -162,8 +171,7 @@
     // ---- ice: crevasse, cave and chute in one swept tube ----
     const iceGeo = tubeGeo(0, S_ROCK1, mobile ? 150 : 240, mobile ? 48 : 72, { cutTop: true });
     const iceNor = tex('rock_face_04_nor', false, 1);
-    const iceM = world.iceM = sonar(new T.MeshPhysicalMaterial({ color: 0xf2f8fc, transmission: 1, ior: 1.31, thickness: 2.2, roughness: 0.16, attenuationColor: new T.Color('#A9CBE3'), attenuationDistance: 1.4,
-      normalMap: iceNor, normalScale: new T.Vector2(0.55, 0.55), clearcoat: 0.6, clearcoatRoughness: 0.12, side: T.DoubleSide, specularIntensity: 1 }), 'ice', { diss: 0, ice: true, env: 1.25 });
+    const iceM = world.iceM = sonar(new T.MeshPhysicalMaterial({ color: 0x7fa6c2, roughness: 0.22, metalness: 0, normalMap: iceNor, normalScale: new T.Vector2(0.9, 0.9), clearcoat: 1, clearcoatRoughness: 0.06, ior: 1.31, side: T.DoubleSide, specularIntensity: 1 }), 'ice', { diss: 0, ice: true, env: 1.25 });
     const iceFloorM = world.iceFloorM = sonar(new T.MeshStandardMaterial({ map: ltex('assets/textures/snow_diff.jpg', true, 1), normalMap: ltex('assets/textures/snow_nor_gl.jpg', false, 1), color: 0xd4e3ee, roughness: 0.85, side: T.DoubleSide }), 'icefloor', { diss: 0, ice: true, env: 1 });
     const iceTube = world.iceTube = new T.Mesh(iceGeo, [iceM, iceFloorM]); S.add(iceTube);
     // snowfield with the crevasse cut out (a little overhang, like a cornice)
@@ -177,9 +185,6 @@
     const gg = new T.ShapeGeometry(shape, 2); gg.rotateX(-Math.PI / 2);
     { const p = gg.attributes.position, u = gg.attributes.uv; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z * 0.6); p.setY(i, d > 30 ? (FK.fbm(x * 0.02, z * 0.02, 1, 3) - 0.4) * Math.min(1, (d - 30) / 60) * 14 : 0); u.setXY(i, x / 5, z / 5); } gg.computeVertexNormals(); }
     const ground = new T.Mesh(gg, snowMat); S.add(ground); world.ground = ground;
-    // snow lips along the crevasse edge
-    const lipM = snowMat;
-    for (let k = 0; k < cuts.length; k += 2) for (const e of [0, 1]) { const c = cuts[k]; const m = new T.Mesh(new T.SphereGeometry(0.45 + rnd() * 0.35, 10, 6), lipM); m.scale.set(1.4, 0.35, 1.6); m.position.copy(c[e]).lerp(c[2].clone().setY(0), -0.25); m.position.y = 0.02; S.add(m); }
     const mtnM = new T.MeshStandardMaterial({ color: 0xeef3f7, roughness: 0.95, flatShading: true, envMapIntensity: 0.8 });
     for (let i = 0; i < 12; i++) {
       const g = new T.IcosahedronGeometry(1, 4), p = g.attributes.position;
@@ -294,7 +299,7 @@
         ' vec3 p = position + vec3(sin(uT*0.21 + aR*30.0)*0.35 + uT*uSnow*0.5, -uT*(0.035 + uSnow*0.75*(0.5 + aR)), cos(uT*0.17 + aR*20.0)*0.35);',
         ' p = mod(p - uCam + b*0.5, b) - b*0.5 + uCam;',
         ' float L = 0.0; for (int i = 0; i < 2; i++) { float dw = distance(p, uPP[i].xyz), R = uPP[i].w; L += (exp(-pow((dw - R)/0.9, 2.0))*2.4 + smoothstep(R + 0.5, R - 8.0, dw)*0.22) * uPA[i] / (1.0 + dw*0.09); }',
-        ' vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_PointSize = (0.9 + aR*1.7) * uScale / -mvPosition.z * mix(0.03, 0.07, uSnow);',
+        ' vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_PointSize = (0.9 + aR*1.7) * uScale / -mvPosition.z * mix(0.004, 0.011, uSnow);',
         ' vA = (L * (0.5 + aR) + uSnow * (0.4 + aR*0.5) * smoothstep(15.0, 2.0, -mvPosition.z)) * smoothstep(0.15, 0.7, -mvPosition.z);',
         ' gl_Position = projectionMatrix * mvPosition;', '#include <clipping_planes_vertex>', '}'].join('\n'),
       fragmentShader: '#include <clipping_planes_pars_fragment>\nuniform float uSnow; varying float vA; void main(){\n#include <clipping_planes_fragment>\n float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(mix(vec3(0.62, 0.8, 1.0), vec3(1.0), uSnow) * vA * smoothstep(0.5, 0.1, d), 1.0); }' }));
@@ -418,8 +423,8 @@
   // descent keys (surface to the crevasse floor), then the walk keys along the path
   const S8 = sZ(1);
   const eyeAt = (s, h, o) => { const f = frame(s); return (o || V()).copy(f.P).addScaledVector(f.up, h); };
-  const DK = [V(3.4, 2.9, 25), V(1.3, 2.4, 14), V(0.35, 1.4, 5.2), V(0.25, -9.5, 1.8), eyeAt(S8, 1.62)];
-  const DL = [V(0, -6, -1), V(0.2, -9, -2), V(0.3, -18, -3), V(0.25, -19.4, -8), eyeAt(S8 + 5, 1.5)];
+  const DK = [V(-2.6, 2.4, 16.5), V(-0.6, 2.2, 10), V(0.3, 1.5, 4.6), V(0.25, -9.5, 1.6), eyeAt(S8, 1.62)];
+  const DL = [V(1.6, -1.6, -24), V(0.6, -4, -14), V(0.3, -16, -2.5), V(0.25, -19.4, -7), eyeAt(S8 + 5, 1.5)];
   const dP = new T.CatmullRomCurve3(DK), dL = new T.CatmullRomCurve3(DL);
   const DU_ = [[0, 0], [0.05, 0.25], [0.085, 0.5], [0.115, 0.75], [0.14, 1]];
   const SK = [[0.14, S8], [0.19, sZ(-24)], [0.255, S_LAND], [0.302, S_LAND + 0.6], [0.40, sZ(-80)], [0.56, sZ(-108)], [0.68, S_HOLD - 2.5], [0.80, S_HOLD]];
@@ -559,7 +564,7 @@
     // ---- light: the surface fades out as you descend ----
     const Lf = mode === 'film' ? 1 - ss(0.07, 0.25, p) * 0.75 - ss(0.2, 0.255, p) * 0.25 : 0;
     world.sun.intensity = 2.3 * Math.pow(Lf, 1.6); world.hemi.intensity = 0.9 * Lf;
-    world.iceM.envMapIntensity = 1.25 * Lf + 0.05; world.iceFloorM.envMapIntensity = Lf; PU.uGlow.value = 0.05 + 0.22 * Lf * (1 - ss(0.0, 0.08, p) * 0.4); PU.uDeep.value = lerp(0.04, 0.38, Lf);
+    world.iceM.envMapIntensity = 0.9 * Lf + 0.05; world.iceFloorM.envMapIntensity = Lf; PU.uGlow.value = 0.12 + 1.1 * Lf; PU.uDeep.value = lerp(0.03, 0.3, Lf);
     S.background.copy(BLACK).lerp(SKY, Math.pow(Lf, 2.2)); S.fog.color.copy(BLACK).lerp(DEEPICE, ss(0.05, 0.5, Lf)).lerp(SKY, ss(0.55, 1, Lf));
     S.fog.density = lerp(0.034, 0.012, Lf);
     world.iceTube.visible = mode === 'film' && camS < S_ROCK1 + 6; world.ground.visible = world.iceTube.visible;

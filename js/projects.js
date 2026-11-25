@@ -67,7 +67,7 @@
   S.add(new T.HemisphereLight(0xf4f8ff, 0xc3d2df, 0.85));
   const pm = new T.PMREMGenerator(R);
   // sky dome: Poly Haven snow_field_puresky (2k), turned so its own sun lines up with ours, graded to the icy palette
-  const skyU = { tSky: { value: null }, uOn: { value: 0 }, uYaw: { value: 2.265 }, uExp: { value: 1.55 }, uSun: { value: SUN }, uFog: { value: FOG } };
+  const skyU = { tSky: { value: null }, uOn: { value: 0 }, uYaw: { value: 2.265 }, uExp: { value: 1.2 }, uSun: { value: SUN }, uFog: { value: FOG } };
   const sky = new T.Mesh(new T.SphereGeometry(600, 48, 24), new T.ShaderMaterial({
     uniforms: skyU, side: T.BackSide, depthWrite: false, fog: false,
     vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position + cameraPosition, 1.0); gl_Position = p.xyww; }',
@@ -77,8 +77,8 @@
       '  float a = atan(d.z, d.x) + uYaw; vec2 uv = vec2(fract(a * 0.15915494 + 0.5), asin(clamp(d.y, -1.0, 1.0)) * 0.31830988 + 0.5);',
       '  vec3 c = mix(vec3(0.62, 0.66, 0.7), texture2D(tSky, uv).rgb, uOn) * uExp;',
       '  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, 0.55) * vec3(0.93, 0.97, 1.03);',
-      '  c = mix(c, c * vec3(0.72, 0.83, 0.95), smoothstep(0.03, 0.65, d.y));',
-      '  c = mix(c, uFog, exp(-abs(d.y) * 12.0) * 0.6);',
+      '  c = mix(c, c * vec3(0.6, 0.75, 0.92), smoothstep(-0.01, 0.32, d.y));',
+      '  c = mix(c, uFog, exp(-abs(d.y) * 22.0) * 0.5);',
       '  float s = max(dot(d, uSun), 0.0);',
       '  c += vec3(1.0, 0.975, 0.93) * (pow(s, 2200.0) * 26.0 + pow(s, 160.0) * 0.85 + pow(s, 14.0) * 0.2);',
       '  gl_FragColor = vec4(c, 1.0); }'].join('\n'),
@@ -117,8 +117,8 @@
         '  float sn = smoothstep(0.5, 0.74, sl + (br - 0.5) * 0.35);',
         '  diffuseColor.rgb = mix(rk, vec3(0.95, 0.97, 0.99), sn); }'].join('\n'))
       .replace('#include <output_fragment>', [
-        '{ float dist = length(vWP - cameraPosition); float af = 1.0 - exp(-dist * 0.0042);',
-        '  float hf = smoothstep(uGy + 28.0, uGy, vWP.y) * 0.5;',
+        '{ float dist = length(vWP - cameraPosition); float af = 1.0 - exp(-dist * 0.0027);',
+        '  float hf = smoothstep(uGy + 22.0, uGy, vWP.y) * 0.35;',
         '  outgoingLight = mix(outgoingLight, uFogC, clamp(af + hf * (1.0 - af), 0.0, 0.97)); }',
         '#include <output_fragment>'].join('\n'));
   };
