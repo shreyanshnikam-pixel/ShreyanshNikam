@@ -313,7 +313,7 @@
   }
   function buildTower() {
     const Gt = grp.tower; Gt.position.copy(TWR); S.add(Gt);
-    const dir = V(-600, 0, 0).sub(TWR).normalize(); Gt.rotation.y = Math.atan2(-dir.x, -dir.z);
+    const dir = V(-600, 0, 0).sub(TWR).normalize(); Gt.rotation.y = Math.atan2(-dir.x, -dir.z); Gt.updateMatrixWorld(true);
     const conc = new T.MeshStandardMaterial({ color: 0xe9e6e0, map: concreteTex(1024, 1024, 8), roughness: 0.9 }); conc.map.repeat.set(3, 6);
     const glassD = new T.MeshPhysicalMaterial({ color: 0x1c2733, roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.4 });
     const add = (geo, m, p, r) => { const o = new T.Mesh(geo, m); o.position.set(p[0], p[1], p[2]); if (r) o.rotation.set(r[0], r[1], r[2]); Gt.add(o); return o; };
@@ -478,7 +478,7 @@
     // header, overhead panel, side walls, floor
     const ohC = cnv(1024, 512, (x, w, h) => { x.fillStyle = '#2c3036'; x.fillRect(0, 0, w, h); for (let r = 0; r < 9; r++) for (let c = 0; c < 22; c++) { if (rnd() < 0.18) continue; const X = 14 + c * 45, Y = 14 + r * 55; x.fillStyle = '#1a1c20'; x.fillRect(X, Y, 36, 40); const lit = rnd(); x.fillStyle = lit < 0.12 ? 'rgba(255,190,90,.95)' : lit < 0.2 ? 'rgba(150,230,255,.9)' : 'rgba(225,230,235,.55)'; x.fillRect(X + 6, Y + 26, 24, 4); x.fillStyle = 'rgba(230,235,240,.5)'; x.fillRect(X + 4, Y + 4, 28, 3); } });
     const ohT = ctex(ohC); const ohM = new T.MeshStandardMaterial({ map: ohT, emissive: 0xffffff, emissiveMap: ohT, emissiveIntensity: 0.12, roughness: 0.8 });
-    const oh = add(new T.PlaneGeometry(1.5, 1.15), ohM, [0.3, 0.52, 0], [Math.PI / 2 + 0.32, 0, -Math.PI / 2]); oh.rotation.set(0, 0, 0); oh.rotation.order = 'YXZ'; oh.rotation.y = -Math.PI / 2; oh.rotation.x = Math.PI / 2 + 0.35;
+    const oh = add(new T.PlaneGeometry(1.15, 1.6), ohM, [0.3, 0.5, 0]); oh.quaternion.setFromUnitVectors(V(0, 0, 1), V(-0.4, -1, 0).normalize());
     add(new T.BoxGeometry(0.22, 0.06, 2.0), shell, [0.98, yt + 0.04, 0]);
     for (const sg of [-1, 1]) { add(new T.BoxGeometry(2.4, 1.1, 0.06), shell, [-0.4, -0.76, sg * 1.06]); add(new T.BoxGeometry(1.2, 0.7, 0.06), shellL, [-0.9, 0.12, sg * 1.04]); add(new T.BoxGeometry(1.6, 0.05, 0.4), fabric, [-0.2, -0.22, sg * 0.88]); }
     add(new T.BoxGeometry(3, 0.04, 2.2), M(0x16181b, 0.9), [-0.2, -1.32, 0]);
@@ -516,7 +516,6 @@
       const head = add(new T.SphereGeometry(0.1, 28, 20), skin(skinC), [-0.06, 0.03, z], null, g); head.scale.set(1.05, 1.15, 0.92);
       const hair = add(new T.SphereGeometry(0.104, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.6), hairM(hairC), [-0.075, 0.045, z], [0, 0, 0.5], g); hair.scale.set(1.05, 1.12, 0.95);
       add(new T.CylinderGeometry(0.05, 0.055, 0.12, 16), skin(skinC), [-0.08, -0.1, z], null, g);
-      add(new T.TorusGeometry(0.112, 0.011, 6, 28, Math.PI), blk, [-0.07, 0.04, z], [Math.PI / 2, 0, 0], g).rotation.set(0, 0, 0);
       const band = add(new T.TorusGeometry(0.113, 0.012, 6, 28, Math.PI), blk, [-0.07, 0.035, z], null, g); band.rotation.set(0, Math.PI / 2, 0);
       for (const s of [-1, 1]) add(new T.CylinderGeometry(0.045, 0.045, 0.035, 18), blk, [-0.07, 0.03, z + s * 0.105], [Math.PI / 2, 0, 0], g);
       add(new T.CylinderGeometry(0.004, 0.004, 0.14, 6), blk, [0.0, -0.01, z + sg * 0.09], [0, 0, 1.3], g);
@@ -536,7 +535,7 @@
     };
     const arm = (sh, el, wr, hand, dir, curl, cuffStripes) => {
       limb(sh, el, 0.05, 0.045, shirt); limb(el, wr, 0.045, 0.036, shirt);
-      new T.Mesh(); gloveAt(hand, dir, curl);
+      gloveAt(hand, dir, curl);
       for (let k = 0; k < cuffStripes; k++) { const d = wr.clone().sub(el).normalize(); const r = new T.Mesh(new T.TorusGeometry(0.038, 0.004, 6, 20), gold); r.position.copy(wr).addScaledVector(d, -0.03 - k * 0.012); r.quaternion.setFromUnitVectors(V(0, 0, 1), d); Gc.add(r); }
     };
     // captain: left hand on the yoke's left horn, right hand on the thrust levers
@@ -739,8 +738,8 @@
 
   // ================= textures from Poly Haven (CC0) =================
   loads.push(Promise.all([ltex('assets/textures/snow_field_aerial_diff.jpg', true), ltex('assets/textures/snow_field_aerial_nor_gl.jpg'), ltex('assets/textures/asphalt_snow_diff.jpg', true), ltex('assets/textures/asphalt_snow_nor_gl.jpg'), ltex('assets/textures/asphalt_snow_rough.jpg')]).then(([sd, sn, ad, an, ar]) => {
-    if (sd) { gMat.map = sd; gMat.normalMap = sn; sn && sn.repeat.set(160000 / 55, 160000 / 55); sd.repeat.set(1, 1); gMat.needsUpdate = true; }
-    if (ad) { rwMat.map = ad; rwMat.normalMap = an; rwMat.roughnessMap = ar; [an, ar].forEach((t) => t && t.repeat.set(3080 / 14, 62 / 14)); rwMat.needsUpdate = true; taxM.map = ad; taxM.normalMap = an; taxM.needsUpdate = true; }
+    if (sd) { gMat.map = sd; gMat.normalMap = sn; sd.repeat.set(160000 / 55, 160000 / 55); gMat.needsUpdate = true; }
+    if (ad) { rwMat.map = ad; rwMat.normalMap = an; rwMat.roughnessMap = ar; ad.repeat.set(3080 / 14, 62 / 14); rwMat.needsUpdate = true; taxM.map = ad; taxM.normalMap = an; taxM.needsUpdate = true; }
   }));
   buildTower();
 
