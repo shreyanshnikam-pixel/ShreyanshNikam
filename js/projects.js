@@ -400,7 +400,7 @@
   const fontsReady = (document.fonts ? Promise.all([document.fonts.load('600 64px Unbounded'), document.fonts.load('700 64px Unbounded'), document.fonts.load('500 24px "Geist Mono"')]).catch(() => {}) : Promise.resolve())
     .then(() => { B.forEach((b) => b.etchT.userData.redraw()); layout(); });
   loadAll.push(fontsReady);
-  window.__proj = { S, C, B, ground, R };
+  window.__proj = { S, C, B, ground, R, rays, bloom, sky, mtns, banks, comp };
   S0.boot(Promise.all(loadAll), () => { layout(); R.compile(S, C); });
   requestAnimationFrame(frame);
 })();
