@@ -23,7 +23,7 @@
   const FOG = new T.Color('#EEF3F7'); S.fog = new T.FogExp2(FOG.clone(), 0.016);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
-  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.4, 0.6, 0.94); comp.addPass(bloom);
+  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.32, 0.5, 0.985); comp.addPass(bloom);
   const grade = new T.ShaderPass({
     uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uFlash: { value: 0 }, uRes: { value: new T.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -49,7 +49,7 @@
   const DPR = () => Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2);
 
   // ---------- light and environment ----------
-  const sun = new T.DirectionalLight(0xffffff, 2.2); sun.position.set(-8, 14, 9); S.add(sun);
+  const sun = new T.DirectionalLight(0xffffff, 2.2); sun.position.set(-9, 7, -10); S.add(sun);
   S.add(new T.HemisphereLight(0xf4f8ff, 0xcbd8e4, 0.9));
   const pm = new T.PMREMGenerator(R);
   loadAll.push(new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; S.environment = pm.fromEquirectangular(tx).texture; tx.dispose(); res(); }, undefined, () => res())));
@@ -59,7 +59,7 @@
   const rnd = FK.rng(7);
 
   // ---------- snowfield with a faint contour grid, distant mountains ----------
-  const gMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, normalScale: new T.Vector2(0.7, 0.7) });
+  const gMat = new T.MeshStandardMaterial({ color: 0xe9eff4, roughness: 1, normalScale: new T.Vector2(1.1, 1.1) });
   const GR = 110;
   loadAll.push(Promise.all([ltex('assets/textures/snow_diff.jpg', true, GR), ltex('assets/textures/snow_nor_gl.jpg', false, GR), ltex('assets/textures/snow_rough.jpg', false, GR)]).then(([d, n, r]) => { gMat.map = d; gMat.normalMap = n; gMat.roughnessMap = r; gMat.needsUpdate = true; }));
   FK.patch(gMat, 'p-snow-grid', {}, '', [
@@ -120,7 +120,7 @@
   };
   // etched text: a white highlight under dark ink, like letters cut into ice
   function fit(x, s, font, size, maxW) { let z = size; x.font = font(z); while (x.measureText(s).width > maxW && z > 10) { z -= 2; x.font = font(z); } }
-  function etch(x, s, X, Y, col) { x.globalAlpha = 0.9; x.fillStyle = '#FFFFFF'; x.fillText(s, X + 1.5, Y + 2.5); x.globalAlpha = 1; x.fillStyle = col; x.fillText(s, X, Y); }
+  function etch(x, s, X, Y, col) { x.globalAlpha = 0.75; x.fillStyle = '#FFFFFF'; x.fillText(s, X + 1, Y + 1.5); x.globalAlpha = 1; x.fillStyle = col; x.fillText(s, X, Y); }
   function mono(x, s, size, X, Y, col, maxW) { x.letterSpacing = '5px'; fit(x, s, (z) => '500 ' + z + 'px "Geist Mono", ui-monospace, monospace', size, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function disp(x, s, wt, size, X, Y, col, maxW) { x.letterSpacing = '-2px'; fit(x, s, (z) => wt + ' ' + z + 'px Unbounded, system-ui, sans-serif', size, maxW); etch(x, s, X, Y, col); x.letterSpacing = '0px'; }
   function rule(x, X, Y, w) { x.fillStyle = 'rgba(94,138,171,.55)'; x.fillRect(X, Y, w, 2); x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(X, Y + 2, w, 2); }
@@ -160,13 +160,27 @@
   });
 
   const DEF = [
-    { key: 'sky', att: '#A9CBE3', ad: 3.2, rot: -0.24, crack: [0.8, 0.16], seed: 11 },
-    { key: 'echo', att: '#5E8AAB', ad: 2.2, rot: 0.24, crack: [0.2, 0.22], seed: 29 },
+    { key: 'sky', att: '#A9CBE3', ad: 2.4, rot: -0.24, crack: [0.8, 0.16], seed: 11 },
+    { key: 'echo', att: '#5E8AAB', ad: 1.8, rot: 0.24, crack: [0.2, 0.22], seed: 29 },
   ];
-  const WHITE = new T.Color('#FFFFFF'), DIMC = new T.Color('#CAD7E2');
-  const B = DEF.map((d, i) => {
+    const B = DEF.map((d, i) => {
     const group = new T.Group(), widen = new T.Group(); group.add(widen); S.add(group);
-    const mat = new T.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, ior: 1.31, thickness: DEP, roughness: 0.08, metalness: 0, attenuationColor: new T.Color(d.att), attenuationDistance: d.ad, clearcoat: 0.7, clearcoatRoughness: 0.06, envMapIntensity: 1.3, specularIntensity: 1 });
+    const mat = new T.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, ior: 1.31, thickness: 0.9, roughness: 0.08, metalness: 0, attenuationColor: new T.Color(d.att), attenuationDistance: d.ad, clearcoat: 0.7, clearcoatRoughness: 0.06, envMapIntensity: 1.3, specularIntensity: 1 });
+    // deep-ice shading: darker toward the edges (fresnel) and the base, lighter and brighter when hovered, greyer when dimmed
+    const u = { uH: { value: 0 }, uDim: { value: 0 } };
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, u);
+      sh.vertexShader = 'varying vec3 vOP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vOP = position;');
+      sh.fragmentShader = 'uniform float uH, uDim; varying vec3 vOP;\n' + sh.fragmentShader.replace('#include <output_fragment>', [
+        '{ float fr = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2);',
+        '  float low = smoothstep(0.45, -0.5, vOP.y);',
+        '  vec3 deep = vec3(0.30, 0.47, 0.62);',
+        '  outgoingLight *= mix(vec3(1.0), deep, clamp(fr * 0.9 + low * 0.28, 0.0, 1.0) * (1.0 - 0.3 * uH));',
+        '  outgoingLight += vec3(0.62, 0.78, 0.9) * uH * 0.22 * (1.0 - fr);',
+        '  outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.8, 0.84, 0.88) + 0.04, uDim); }',
+        '#include <output_fragment>'].join('\n'));
+    };
+    mat.customProgramCacheKey = () => 'proj-ice';
     const mesh = new T.Mesh(blockGeo, mat); mesh.userData.i = i; widen.add(mesh);
     const glow = new T.Mesh(new T.PlaneGeometry(1.25, 1.4), glowMat('#A9CBE3')); glow.position.z = -0.1; glow.renderOrder = 3; group.add(glow);
     const etchT = textCanvas(624, 800, (x, w, h) => { x.save(); x.scale(w / 780, h / 1000); etchDraw[d.key](x, 780, 1000); x.restore(); });
@@ -182,7 +196,7 @@
     const light = new T.PointLight(0xA9CBE3, 1.5, 6, 2); group.add(light);
     const shadow = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat('#5E8AAB', false)); S.add(shadow);
     const pool = new T.Mesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat('#A9CBE3', true)); pool.position.y = 0.01; S.add(pool);
-    return { i, d, group, widen, mesh, mat, glow, text, etchT, crack: ck, bubbles, light, shadow, pool, base: V(0, 0, 0), sc: 1, st: { h: 0, dim: 0 }, href: links[i].getAttribute('href'), ph: i * 2.1 };
+    return { i, d, u, group, widen, mesh, mat, glow, text, etchT, crack: ck, bubbles, light, shadow, pool, base: V(0, 0, 0), sc: 1, st: { h: 0, dim: 0 }, href: links[i].getAttribute('href'), ph: i * 2.1 };
   });
 
   // ---------- layout: each block sits where its link's empty space is on screen ----------
@@ -285,12 +299,12 @@
       b.group.rotation.set(Math.sin(t * 0.4 + b.ph) * 0.025 * idle, b.d.rot * (1 - 0.5 * h) + Math.sin(t * 0.25 + b.ph) * 0.08 * idle + mouse.x * 0.14 * h * idle, Math.sin(t * 0.33 + b.ph) * 0.015 * idle);
       b.group.scale.setScalar(b.sc * (1 - 0.04 * dim));
       b.widen.scale.x = 1 + 0.12 * h;
-      b.glow.material.uniforms.uA.value = (0.22 + 0.95 * h - 0.18 * dim) * (1 - ss(0.5, 0.9, fp)) * (1 - fo);
+      b.glow.material.uniforms.uA.value = (0.08 + 0.7 * h - 0.06 * dim) * (1 - ss(0.5, 0.9, fp)) * (1 - fo);
       b.light.intensity = (1.2 + 5.5 * h - 0.9 * dim) * (b.sc / 3); b.light.position.set(0, -0.1, 0);
       b.text.material.opacity = (0.92 - 0.5 * dim) * (1 - ss(0.45, 0.75, fp)) * (1 - fo);
       b.crack.uniforms.uK.value = h; b.crack.uniforms.uA.value = (1 - dim) * (1 - fo);
       b.bubbles.material.uniforms.uA.value = 1 - 0.6 * dim;
-      b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.5 * h - 0.45 * dim); b.mat.color.copy(WHITE).lerp(DIMC, dim * 0.7);
+      b.mat.envMapIntensity = 1.3 + 0.4 * h - 0.55 * dim; b.mat.attenuationDistance = b.d.ad * (1 + 0.5 * h - 0.4 * dim); b.u.uH.value = h; b.u.uDim.value = dim;
       b.shadow.material.uniforms.uA.value = 0.2 + 0.06 * h - 0.06 * dim; b.pool.material.uniforms.uA.value = 0.05 + 0.4 * h;
     });
     grade.uniforms.uT.value = t;
