@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Echo: a horror game where sound is the only way to see · Shreyansh Nikam</title>
 <meta name="description" content="Echo, 1st prize, best overall at Hack Club Haven Princeton (November 14 to 15, 2026). Descend from the ice into the Hollow, a dark mine you can only see by sound.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Echo: a horror game where sound is the only way to see · Shreyansh Nikam">
+<meta property="og:description" content="1st prize, best overall at Hack Club Haven Princeton 2026. Descend from the ice into the Hollow, a dark mine you can only see by sound.">
+<meta property="og:image" content="https://shreyansh-nikam.pages.dev/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Echo | Shreyansh Nikam">
+<meta name="twitter:description" content="A horror game where sound is the only way to see. 1st prize, best overall at Hack Club Haven Princeton 2026.">
+<meta name="twitter:image" content="https://shreyansh-nikam.pages.dev/assets/og-card.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:opsz,wght@10..72,500..900&family=Special+Elite&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Unbounded:wght@600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
@@ -33,10 +43,15 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .ovl2{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;pointer-events:none;color:var(--pale)}
 .ovl2 canvas.frames{position:absolute;inset:0;width:100%;height:100%;display:none;z-index:0;pointer-events:none}
 .ovl2.descent-film canvas.frames{display:block}
-.ovl2 .chapters,.ovl2 .cap,.ovl2 .ping,.ovl2 .hint,.ovl2 .warnline,.ovl2 .progress,.ovl2 .loading{z-index:2}
+.ovl2 .chapters,.ovl2 .cap,.ovl2 .ping,.ovl2 .hint,.ovl2 .warnline,.ovl2 .progress,.ovl2 .loading,.ovl2 .sonar-hud{z-index:2}
 .ovl2 .chapters{position:absolute;left:var(--pad);top:86px;display:flex;gap:18px;flex-wrap:wrap;opacity:0;transition:color .6s,opacity .5s}
 .ovl2.active .chapters{opacity:1}
 .ovl2 .chapters span{opacity:.42;transition:opacity .5s}.ovl2 .chapters span.on{opacity:1}
+.ovl2 .sonar-hud{position:absolute;right:var(--pad);top:86px;padding:10px 14px;border-radius:12px;background:rgba(5,8,11,.62);border:1px solid rgba(169,203,227,.26);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-align:right;color:#EAF2F8;line-height:1.65;opacity:0;transform:translateY(-6px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.ovl2 .sonar-hud.show{opacity:1;transform:none}
+.ovl2 .sonar-hud span{display:block;white-space:nowrap}
+.ovl2 .sonar-hud b{font-weight:600;color:#A9CBE3}
+.ovl2 .sonar-hud .sh-tip{color:rgba(202,215,226,.72);font-size:10px;margin-top:2px}
 .ovl2.lit{color:var(--ink)}
 .ovl2 .progress{top:auto;bottom:0;height:2px;opacity:0;transition:opacity .4s}.ovl2.active .progress{opacity:1}
 .ovl2.lit .progress{background:rgba(15,27,38,.12)}.ovl2.lit .progress i{background:var(--ink)}
@@ -59,7 +74,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .ovl2.lit .warnline{color:var(--ink)}
 .ovl2 .loading{position:absolute;inset:0;display:grid;place-items:center;font:500 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink);transition:opacity .6s}
 .ovl2 .loading.off{opacity:0}
-@media (max-width:760px){.ovl2 .warnline{display:none}.ovl2 .chapters{top:76px;gap:10px}.ovl2 .chapters span{display:none}.ovl2 .chapters span.on{display:inline}.ping{width:76px;height:76px;bottom:40px}.cap{bottom:24%}.ovl2 .hint{bottom:128px}.film{height:1300vh}}
+@media (max-width:760px){.ovl2 .warnline{display:none}.ovl2 .chapters{top:76px;gap:10px}.ovl2 .chapters span{display:none}.ovl2 .chapters span.on{display:inline}.ovl2 .sonar-hud{top:72px;padding:7px 10px;font-size:10px;line-height:1.5}.ovl2 .sonar-hud .sh-tip{display:none}.ping{width:76px;height:76px;bottom:40px}.cap{bottom:24%}.ovl2 .hint{bottom:128px}.film{height:1300vh}}
 .js-off .film{height:auto}.js-off .ovl2{position:relative;height:auto;padding:40px var(--pad)}.js-off .cap{position:relative;left:auto;transform:none;opacity:1;width:auto;margin:20px 0;text-align:left}.js-off .ping,.js-off .ovl2 .loading{display:none}
 /* after the film: dark frosted panels over the mine backdrop */
 .after{position:relative;z-index:2;color:var(--pale)}
@@ -161,6 +176,11 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
     <div class="ovl2 lit">
       <canvas class="frames" id="echo-frames" aria-hidden="true"></canvas>
       <div class="chapters hud" aria-hidden="true"><span data-ch="0">Surface</span><span data-ch="1">Descent</span><span data-ch="2">The fall</span><span data-ch="3">Sonar</span><span data-ch="4">The Listener</span><span data-ch="5">Hold</span><span data-ch="6">Caught</span></div>
+      <div class="sonar-hud hud" data-sonar-hud aria-live="polite">
+        <span>PING DIST <b data-sonar-dist>--.- m</b></span>
+        <span>ECHO DELAY <b data-sonar-delay>--.- ms</b></span>
+        <span class="sh-tip" data-sonar-tip>343 m/s · Click, tap or press P</span>
+      </div>
       <div class="cap" data-a=".065" data-b=".125"><span class="a tw">The theme was “Bounce Back.”</span><span class="b tw">An echo is sound bouncing back. Below the snow, the ice opens.</span></div>
       <div class="cap" data-a=".155" data-b=".205"><span class="a tw">The crevasse closes into an ice cave.</span><span class="b tw">Somewhere below it is the Hollow, an old mine.</span></div>
       <div class="cap" data-a=".262" data-b=".31"><span class="a tw">You fell. Your lantern broke.</span><span class="b tw">The only way to see is to make noise.</span></div>

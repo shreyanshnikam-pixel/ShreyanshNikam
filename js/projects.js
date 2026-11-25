@@ -103,9 +103,13 @@
   const rnd = FK.rng(7);
 
   // ---------- snowfield with a faint contour grid, distant mountains ----------
-  const gMat = new T.MeshStandardMaterial({ color: 0xe9eff4, roughness: 1, normalScale: new T.Vector2(1.1, 1.1) });
+  const gMat = new T.MeshStandardMaterial({ color: 0xeef3f7, roughness: 0.94, normalScale: new T.Vector2(0.75, 0.75) });
   const GR = 110;
-  loadAll.push(Promise.all([ltex('assets/textures/snow_diff.jpg', true, GR), ltex('assets/textures/snow_nor_gl.jpg', false, GR), ltex('assets/textures/snow_rough.jpg', false, GR)]).then(([d, n, r]) => { gMat.map = d; gMat.normalMap = n; gMat.roughnessMap = r; gMat.needsUpdate = true; }));
+  loadAll.push(Promise.all([
+    ltex('assets/textures/acg/Snow008A_2K-JPG_Color.jpg', true, GR),
+    ltex('assets/textures/acg/Snow008A_2K-JPG_NormalGL.jpg', false, GR),
+    ltex('assets/textures/acg/Snow008A_2K-JPG_Roughness.jpg', false, GR),
+  ]).then(([d, n, r]) => { gMat.map = d; gMat.normalMap = n; gMat.roughnessMap = r; gMat.needsUpdate = true; }));
   FK.patch(gMat, 'p-snow-grid-glint', {}, 'float psh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }', [
     '{ vec2 g = abs(fract(vWP.xz / 4.0 - 0.5) - 0.5) / fwidth(vWP.xz / 4.0);',
     '  float line = 1.0 - min(min(g.x, g.y), 1.0);',
@@ -323,6 +327,12 @@
     return { nor, rgh };
   })();
 
+  const acgIceP = Promise.all([
+    ltex('assets/textures/acg/Ice003_2K-JPG_NormalGL.jpg', false, 2.2),
+    ltex('assets/textures/acg/Ice003_2K-JPG_Roughness.jpg', false, 2.2),
+  ]);
+  loadAll.push(acgIceP);
+
   const DEF = [
     { key: 'sky', att: '#A9CBE3', ad: 2.4, rot: -0.24, crack: [0.8, 0.16], seed: 11 },
     { key: 'echo', att: '#5E8AAB', ad: 1.8, rot: 0.24, crack: [0.2, 0.22], seed: 29 },
@@ -332,11 +342,16 @@
     const mat = new T.MeshPhysicalMaterial({
       color: new T.Color('#B8CEE0'),
       transparent: true, opacity: 0.84, depthWrite: false,
-      roughness: 0.32, metalness: 0.03,
-      normalMap: pFrost.nor, normalScale: new T.Vector2(0.75, 0.75),
+      roughness: 0.40, metalness: 0.03,
+      normalMap: pFrost.nor, normalScale: new T.Vector2(0.48, 0.48),
       roughnessMap: pFrost.rgh,
       clearcoat: 0.25, clearcoatRoughness: 0.32,
       envMapIntensity: 0.82, reflectivity: 0.7,
+    });
+    acgIceP.then(([inor, irgh]) => {
+      if (inor && inor.image) mat.normalMap = inor;
+      if (irgh && irgh.image) mat.roughnessMap = irgh;
+      mat.needsUpdate = true;
     });
     // Single-pass frosted glacial ice (calibrated in LINEAR color space to exact Snow/Glacier/Ice-blue/Deep-ice palette)
     const u = { uH: { value: 0 }, uDim: { value: 0 } };

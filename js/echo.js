@@ -31,6 +31,7 @@
   const ovl = film.querySelector('.ovl2'), descentCv = document.getElementById('echo-frames'), caps = Array.from(film.querySelectorAll('.cap[data-a]')), capCaught = film.querySelector('[data-caught]');
   const chs = Array.from(film.querySelectorAll('[data-ch]')), bar = film.querySelector('[data-bar]'), pingBtn = film.querySelector('[data-ping]');
   const hint = film.querySelector('[data-hint]'), loadingEl = film.querySelector('[data-loading]');
+  const sonarHud = film.querySelector('[data-sonar-hud]'), sonarDistEl = film.querySelector('[data-sonar-dist]'), sonarDelayEl = film.querySelector('[data-sonar-delay]'), sonarTipEl = film.querySelector('[data-sonar-tip]');
   let descentPl = null;
   if (window.FilmPlayer && descentCv) {
     window.FilmPlayer.load(descentCv, 'assets/films/echo_descent/manifest.json').then((pl) => { if (pl) descentPl = pl; }).catch(() => {});
@@ -412,24 +413,41 @@
 
   // ---------- pings and their echoes ----------
   const pings = [{ t: -1e9, p: V() }, { t: -1e9, p: V() }]; let lastPing = -1e9, pingAmp = 1;
+  let lastSonarDist = null, lastSonarDelay = null, lastSonarHits = 0;
   const ray = new T.Raycaster(), dirs = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; dirs.push(V(Math.sin(a), 0.05, -Math.cos(a))); }
   for (const a of [0.6, 2.5]) for (const e of [0.55, -0.45]) dirs.push(V(Math.sin(a) * 0, e, -Math.cos(a)));
   function ping(amp) {
     const now = performance.now(); pings[1].t = pings[0].t; pings[1].p.copy(pings[0].p); pings[1].a = pings[0].a;
     pings[0].t = now; pings[0].a = amp || 1; pings[0].p.copy(C.position).addScaledVector(camFwd, 0.3); lastPing = now;
-    if (!A.ac || !S0.soundOn) return;
-    const soft = amp && amp < 1; play('ping', { vol: soft ? 0.22 : 0.7 });
+    const soft = amp && amp < 1;
+    const playAudio = !!(A.ac && S0.soundOn);
+    if (playAudio) play('ping', { vol: soft ? 0.22 : 0.7 });
     if (!world.col) return;
     const yaw = Math.atan2(camFwd.x, -camFwd.z), q = new T.Quaternion().setFromAxisAngle(up0, -yaw);
-    dirs.forEach((d0) => {
+    let bestDist = Infinity, fwdDist = Infinity, hits = 0;
+    dirs.forEach((d0, idx) => {
       const d = d0.clone().normalize().applyQuaternion(q); ray.set(C.position, d); ray.far = 120;
       const h = ray.intersectObject(world.col, false)[0]; if (!h) return;
       const dist = h.distance, delay = 2 * dist / 343;
-      const vol = (soft ? 0.18 : 0.58) * Math.exp(-dist * 0.028) / (1 + 0.08 * dist + 0.005 * dist * dist);
-      play('ping', { pos: h.point, when: delay, vol, rate: 0.98 - Math.min(0.1, dist * 0.0018), lp: 350 + 8500 * Math.exp(-dist * 0.042) });
-      if (dist > 10) play('ping', { pos: h.point, when: delay * 2.02, vol: vol * 0.28, rate: 0.94, lp: 260 + 3400 * Math.exp(-dist * 0.042) });
+      hits++;
+      if (dist < bestDist) bestDist = dist;
+      if (idx === 0) fwdDist = dist;
+      if (playAudio) {
+        const vol = (soft ? 0.18 : 0.58) * Math.exp(-dist * 0.028) / (1 + 0.08 * dist + 0.005 * dist * dist);
+        play('ping', { pos: h.point, when: delay, vol, rate: 0.98 - Math.min(0.1, dist * 0.0018), lp: 350 + 8500 * Math.exp(-dist * 0.042) });
+        if (dist > 10) play('ping', { pos: h.point, when: delay * 2.02, vol: vol * 0.28, rate: 0.94, lp: 260 + 3400 * Math.exp(-dist * 0.042) });
+      }
     });
+    const measured = Number.isFinite(fwdDist) ? fwdDist : (Number.isFinite(bestDist) ? bestDist : null);
+    if (measured != null) {
+      lastSonarDist = measured;
+      lastSonarDelay = (2 * measured / 343) * 1000;
+      lastSonarHits = hits;
+      if (sonarDistEl) sonarDistEl.textContent = measured.toFixed(1) + ' m';
+      if (sonarDelayEl) sonarDelayEl.textContent = lastSonarDelay.toFixed(1) + ' ms';
+      if (sonarTipEl) sonarTipEl.textContent = `${hits} echoes · 343 m/s · Click or P`;
+    }
   }
 
   // ---------- state ----------
@@ -673,6 +691,11 @@
     let chI = 0; CH.forEach((c, i) => { if (fp >= c) chI = i; }); if (caught) chI = 6; chs.forEach((c, i) => c.classList.toggle('on', i === chI));
     if (bar) bar.style.transform = `scaleX(${fp.toFixed(4)})`;
     pingBtn.classList.toggle('show', mode === 'film' && p > 0.27 && p < 0.86 && !scaring); pingBtn.classList.toggle('hold', holdK > 0.5);
+    if (sonarHud) {
+      const showSonar = mode === 'film' && p > 0.27 && p < 0.86 && !scaring;
+      sonarHud.classList.toggle('show', showSonar);
+      if (showSonar && holdK > 0.5 && sonarTipEl) sonarTipEl.textContent = 'HOLD BREATH · DO NOT PING';
+    }
     hint.classList.toggle('on', holdK > 0.5 && !scaring);
 
     // ---- render ----
@@ -690,9 +713,23 @@
     pPrev = p; snap = Math.max(0, snap - 1);
   }
 
-  // ping button: during the hold it gives you away
+  // ping button, keyboard P, and crisp click/tap on the mine canvas: during the hold it gives you away
   const userPing = () => { if (!ready || scaring) return; const p = filmP(); if (mode === 'film' && p > 0.675 && p < 0.84 && !caught) { ping(); scareAt = performance.now() + 650; return; } ping(); };
   pingBtn.addEventListener('click', userPing);
+  let tapStart = null;
+  film.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (e.target && e.target.closest('a,button,input,select,textarea,label')) return;
+    tapStart = { x: e.clientX, y: e.clientY };
+  }, { passive: true });
+  film.addEventListener('pointerup', (e) => {
+    if (!tapStart) return;
+    const dx = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y);
+    tapStart = null;
+    if (dx > 8) return;
+    const p = filmP();
+    if (mode === 'film' && p > 0.27 && p < 0.86 && !scaring) userPing();
+  }, { passive: true });
   window.addEventListener('keydown', (e) => {
     if ((e.key !== 'p' && e.key !== 'P') || e.metaKey || e.ctrlKey || e.altKey) return;
     const tag = document.activeElement && document.activeElement.tagName;
@@ -706,7 +743,7 @@
     get ready() { return ready; },
     setProgress(p) { forceA = null; forceP = cl(p, 0, 1); snap = 2; const top = film.getBoundingClientRect().top + scrollY, y = top + forceP * (film.offsetHeight - innerHeight); if (S0.lenis) S0.lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo(0, y); pPrev = forceP; },
     setAfter(a) { forceP = 1; forceA = cl(a, 0, 1); snap = 2; const r = after.getBoundingClientRect(), y = r.top + scrollY - innerHeight + a * (r.height + innerHeight * 0.5); if (S0.lenis) S0.lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo(0, y); },
-    ping: (a) => ping(a), triggerScare, scareFrame(f) { scareF = f; }, state: () => ({ mode, p: ps, camS, scaring, caught, L: world.L && world.L.s }),
+    ping: (a) => ping(a), triggerScare, scareFrame(f) { scareF = f; }, state: () => ({ mode, p: ps, camS, scaring, caught, L: world.L && world.L.s, sonarDist: lastSonarDist, sonarDelay: lastSonarDelay, sonarHits: lastSonarHits }),
   };
 
   // ---------- boot ----------

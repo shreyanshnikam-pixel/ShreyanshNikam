@@ -6,3 +6,4 @@ assets/films/_test/
 __pycache__/
 *.pyc
 blender/tex/
+.wrangler/

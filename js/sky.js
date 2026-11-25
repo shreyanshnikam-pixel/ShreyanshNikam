@@ -7,6 +7,237 @@
   const T = THREE, S0 = window.SITE, FK = window.FK, V = (x, y, z) => new T.Vector3(x, y, z);
   const ss = FK.ss, lerp = FK.lerp, clamp = FK.clamp;
   const film = document.getElementById('film'), stage = document.getElementById('stage'), cv = document.getElementById('sky'), ovl = document.getElementById('ovl'), framesCv = document.getElementById('frames');
+
+  // ================= interactive detection & risk simulator (works in all modes, including reduced motion) =================
+  (function initSimulator() {
+    const simCv = document.getElementById('sim-canvas');
+    const inFlock = document.getElementById('sim-flock');
+    const inDist = document.getElementById('sim-dist');
+    const inDrone = document.getElementById('sim-drone');
+    if (!simCv || !inFlock || !inDist || !inDrone) return;
+    const ctx = simCv.getContext('2d');
+    const outFlock = document.getElementById('sim-flock-v');
+    const outDist = document.getElementById('sim-dist-v');
+    const pill = document.getElementById('sim-pill');
+    const barMask = document.getElementById('sim-bar-mask');
+    const scoreEl = document.getElementById('sim-score');
+    const gemEl = document.getElementById('sim-gemini');
+    const actEl = document.getElementById('sim-action');
+    const solEl = document.getElementById('sim-solana');
+    const solTitle = document.getElementById('sim-sol-title');
+    const solMeta = document.getElementById('sim-sol-meta');
+    const solHash = document.getElementById('sim-sol-hash');
+
+    const seeds = Array.from({ length: 80 }, (_, i) => {
+      const a = Math.sin(i * 12.9898) * 43758.5453;
+      const b = Math.sin((i + 17) * 78.233) * 43758.5453;
+      const c = Math.sin((i + 53) * 39.425) * 43758.5453;
+      return { rx: (a - Math.floor(a)) - 0.5, ry: (b - Math.floor(b)) - 0.5, ph: (c - Math.floor(c)) * Math.PI * 2, sp: 0.7 + (a - Math.floor(a)) * 0.7 };
+    });
+
+    function deterministicHash(str) {
+      let h1 = 0xdeadbeef ^ str.length, h2 = 0x41c6ce57 ^ str.length, h3 = 0x1b873593, h4 = 0x85ebca6b;
+      for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+        h3 = Math.imul(h3 ^ (ch << 3), 2246822519);
+        h4 = Math.imul(h4 ^ (ch << 5), 3266489917);
+      }
+      const hex = (n) => (n >>> 0).toString(16).padStart(8, '0');
+      return (hex(h1) + hex(h2) + hex(h3) + hex(h4) + hex(h1 ^ h3) + hex(h2 ^ h4) + hex(h1 + h4) + hex(h2 + h3)).slice(0, 64);
+    }
+
+    function computeState() {
+      const flock = clamp(parseInt(inFlock.value, 10) || 1, 1, 80);
+      const dist = clamp(parseInt(inDist.value, 10) || 50, 50, 1500);
+      const drone = !!inDrone.checked;
+      const proximity = clamp(1 - (dist - 50) / 1450, 0, 1);
+      const density = clamp(flock / 60, 0, 1);
+      const raw = Math.round(clamp((proximity * 54 + density * 34 + (drone ? 22 : 0)), 4, 100));
+      const lvl = raw >= 66 ? 'high' : raw >= 36 ? 'warn' : 'low';
+      const eta = Math.max(3, Math.round(dist / 19.5));
+      return { flock, dist, drone, raw, lvl, eta };
+    }
+
+    let simState = computeState();
+
+    function updateReadouts() {
+      simState = computeState();
+      const { flock, dist, drone, raw, lvl, eta } = simState;
+      const totalObj = flock + (drone ? 1 : 0);
+      if (outFlock) outFlock.textContent = flock + (flock === 1 ? ' bird' : ' birds');
+      if (outDist) outDist.textContent = dist + ' m';
+      if (pill) {
+        pill.dataset.lvl = lvl;
+        pill.textContent = lvl === 'high' ? 'HIGH · GO AROUND' : lvl === 'warn' ? 'ELEVATED · CAUTION' : 'LOW · MONITORING';
+      }
+      if (barMask) barMask.style.transform = `scaleX(${((100 - raw) / 100).toFixed(3)})`;
+      if (scoreEl) scoreEl.textContent = `Score ${raw} / 100 · ${totalObj} tracked ${totalObj === 1 ? 'object' : 'objects'} · Range ${dist} m`;
+      if (actEl) actEl.textContent = lvl === 'high' ? 'SPOKEN ALERT FIRED' : lvl === 'warn' ? 'TOWER ADVISORY' : 'PASSIVE LOGGING';
+      if (gemEl) {
+        const rec = lvl === 'high'
+          ? 'Issue immediate go-around on RWY 27; spoken alert queued (<0.5 s).'
+          : lvl === 'warn'
+            ? 'Advise incoming traffic on final; keep visual watch on corridor.'
+            : 'Clear for approach; hourly counts logged to TigerData.';
+        gemEl.textContent =
+          `SECTOR   RWY 27 FINAL · CAM 02\n` +
+          `OBJECTS  ${flock} Canada ${flock === 1 ? 'goose' : 'geese'}${drone ? ' + 1 quadcopter drone' : ''}\n` +
+          `CLOSING  ${dist} m from threshold (ETA ~${eta} s)\n` +
+          `ACTION   ${rec}`;
+      }
+      if (solEl && solTitle && solMeta && solHash) {
+        const stamp = drone || lvl === 'high';
+        solEl.dataset.verified = stamp ? 'true' : 'false';
+        if (stamp) {
+          const payload = `sky-sentry|rwy27|flock=${flock}|dist=${dist}|drone=${drone ? 1 : 0}|risk=${raw}`;
+          solTitle.textContent = drone ? 'Solana Devnet Memo · Verified' : 'High-Risk Incident · Tamper-Evident';
+          solMeta.textContent = drone ? 'Drone incident hashed (SHA-256) and stamped on Solana devnet' : 'Logged to MongoDB + SHA-256 integrity digest ready';
+          solHash.textContent = 'sha256:' + deterministicHash(payload);
+        } else {
+          solTitle.textContent = 'Solana Stamp · Standby';
+          solMeta.textContent = 'No drone in corridor; telemetry stored in TigerData time-series';
+          solHash.textContent = 'Enable drone toggle or raise risk to stamp a devnet memo.';
+        }
+      }
+    }
+
+    function drawSim(t) {
+      const w = simCv.width, h = simCv.height;
+      const { flock, dist, drone, raw, lvl } = simState;
+      const prox = clamp(1 - (dist - 50) / 1450, 0, 1);
+
+      // Cold dawn snowy sky + runway horizon
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#182534');
+      g.addColorStop(0.48, '#384c61');
+      g.addColorStop(0.62, '#99adbf');
+      g.addColorStop(0.66, '#d9e3ec');
+      g.addColorStop(1, '#a9bac9');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      // Runway 27 perspective strip
+      ctx.fillStyle = '#252f3a';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.45, h * 0.64);
+      ctx.lineTo(w * 0.55, h * 0.64);
+      ctx.lineTo(w * 0.72, h);
+      ctx.lineTo(w * 0.28, h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(244,247,250,0.75)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 10]);
+      ctx.beginPath(); ctx.moveTo(w * 0.5, h * 0.65); ctx.lineTo(w * 0.5, h); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Approach corridor cone
+      const corAlpha = lvl === 'high' ? 0.22 : lvl === 'warn' ? 0.16 : 0.11;
+      ctx.fillStyle = lvl === 'high' ? `rgba(217,56,46,${corAlpha})` : `rgba(47,111,228,${corAlpha})`;
+      ctx.strokeStyle = lvl === 'high' ? 'rgba(255,105,95,0.78)' : 'rgba(169,203,227,0.78)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([7, 6]);
+      ctx.beginPath();
+      ctx.moveTo(w * 0.12, h * 0.20);
+      ctx.lineTo(w * 0.88, h * 0.34);
+      ctx.lineTo(w * 0.88, h * 0.74);
+      ctx.lineTo(w * 0.12, h * 0.82);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Simulated flock cluster positioned by distance-to-runway
+      const cx = lerp(w * 0.18, w * 0.52, prox);
+      const cy = lerp(h * 0.30, h * 0.48, prox);
+      const spreadX = lerp(95, 165, prox);
+      const spreadY = lerp(42, 72, prox);
+      const boxCap = Math.min(flock, 24);
+
+      for (let i = 0; i < flock; i++) {
+        const s = seeds[i];
+        const bx = cx + s.rx * spreadX + Math.sin(t * s.sp + s.ph) * 14;
+        const by = cy + s.ry * spreadY + Math.cos(t * (s.sp * 1.2) + s.ph) * 8;
+        const flap = Math.sin(t * 7.5 + s.ph) * 4;
+        // Bird silhouette
+        ctx.strokeStyle = '#0F1B26';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bx - 7, by + flap);
+        ctx.quadraticCurveTo(bx - 3, by - 3, bx, by);
+        ctx.quadraticCurveTo(bx + 3, by - 3, bx + 7, by + flap);
+        ctx.stroke();
+
+        // Signal-blue tracking boxes on representative detections
+        if (i < boxCap) {
+          const bw = lerp(18, 28, prox), bh = lerp(15, 22, prox);
+          ctx.strokeStyle = '#2F6FE4';
+          ctx.lineWidth = 1.6;
+          ctx.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+          if (i < 6) {
+            ctx.fillStyle = '#2F6FE4';
+            ctx.fillRect(bx - bw / 2, by - bh / 2 - 13, 36, 12);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '600 9px "Geist Mono", ui-monospace, monospace';
+            ctx.fillText('B-' + String(i + 1).padStart(2, '0'), bx - bw / 2 + 3, by - bh / 2 - 4);
+          }
+        }
+      }
+
+      // Optional quadcopter drone with blinking nav LED & Signal-blue lock
+      if (drone) {
+        const dx = lerp(w * 0.78, w * 0.66, prox) + Math.sin(t * 1.1) * 10;
+        const dy = h * 0.52 + Math.cos(t * 1.7) * 5;
+        ctx.fillStyle = '#0F1B26';
+        ctx.fillRect(dx - 11, dy - 3, 22, 6);
+        ctx.fillRect(dx - 16, dy - 6, 8, 2);
+        ctx.fillRect(dx + 8, dy - 6, 8, 2);
+        ctx.fillStyle = Math.sin(t * 8) > 0 ? '#ff3b30' : '#3ddc84';
+        ctx.beginPath(); ctx.arc(dx, dy + 4, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#2F6FE4';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(dx - 24, dy - 16, 48, 32);
+        ctx.fillStyle = '#2F6FE4';
+        ctx.fillRect(dx - 24, dy - 30, 56, 13);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 9.5px "Geist Mono", ui-monospace, monospace';
+        ctx.fillText('DRN-01', dx - 20, dy - 20);
+      }
+
+      // Top sensor HUD bar
+      ctx.fillStyle = 'rgba(8,13,19,0.74)';
+      ctx.fillRect(14, 14, w - 28, 30);
+      ctx.fillStyle = '#EAF2F8';
+      ctx.font = '600 11px "Geist Mono", ui-monospace, monospace';
+      ctx.fillText(`SKY SENTRY · CAM 02 · RWY 27 FINAL   OBJ ${flock + (drone ? 1 : 0)}   RNG ${dist}m`, 24, 33);
+      ctx.fillStyle = lvl === 'high' ? '#ff6b63' : lvl === 'warn' ? '#ffd166' : '#52e59b';
+      ctx.textAlign = 'right';
+      ctx.fillText(`RISK ${raw}%`, w - 24, 33);
+      ctx.textAlign = 'left';
+    }
+
+    ['input', 'change'].forEach((ev) => {
+      inFlock.addEventListener(ev, () => { updateReadouts(); drawSim(performance.now() * 0.001); });
+      inDist.addEventListener(ev, () => { updateReadouts(); drawSim(performance.now() * 0.001); });
+      inDrone.addEventListener(ev, () => { updateReadouts(); drawSim(performance.now() * 0.001); });
+    });
+    updateReadouts();
+    drawSim(0);
+
+    if (!S0.rm) {
+      let simVis = false;
+      const io = window.IntersectionObserver ? new IntersectionObserver((ents) => { simVis = ents[0].isIntersecting; }, { threshold: 0.05 }) : null;
+      if (io) io.observe(simCv); else simVis = true;
+      const simTick = (now) => {
+        requestAnimationFrame(simTick);
+        if (!document.hidden && simVis) drawSim(now * 0.001);
+      };
+      requestAnimationFrame(simTick);
+    }
+  })();
+
   if (!S0.glOk || S0.rm || !film) { S0.boot(Promise.resolve()); return; }
   const mobile = innerWidth < 760 || Math.min(innerWidth, innerHeight) < 560;
   const DEG = Math.PI / 180, TAN3 = Math.tan(3 * DEG), AIM = 400, gsY = (x) => (AIM - x) * TAN3;

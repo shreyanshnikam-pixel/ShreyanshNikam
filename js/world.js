@@ -124,15 +124,20 @@
     return { nor, rgh };
   })();
 
+  // Load ambientCG 2K CC0 crystalline ice normal & roughness maps (falls back cleanly to procedural frostMaps)
+  const acgIceNor = ltex('assets/textures/acg/Ice003_2K-JPG_NormalGL.jpg', false, 2.2);
+  const acgIceRgh = ltex('assets/textures/acg/Ice003_2K-JPG_Roughness.jpg', false, 2.2);
+  acgIceNor.anisotropy = 4; acgIceRgh.anisotropy = 4;
+
   // Single-pass frosted glacial ice (calibrated in LINEAR color space to exact Snow/Glacier/Ice-blue/Deep-ice palette)
   const DISS = [];
   const ice = (o) => {
     const m = new T.MeshPhysicalMaterial(Object.assign({
       color: new T.Color('#B8CEE0'),
       transparent: true, opacity: 0.86, depthWrite: false,
-      roughness: 0.34, metalness: 0.03,
-      normalMap: frostMaps.nor, normalScale: new T.Vector2(0.75, 0.75),
-      roughnessMap: frostMaps.rgh,
+      roughness: 0.42, metalness: 0.03,
+      normalMap: acgIceNor || frostMaps.nor, normalScale: new T.Vector2(0.48, 0.48),
+      roughnessMap: acgIceRgh || frostMaps.rgh,
       clearcoat: 0.25, clearcoatRoughness: 0.34,
       envMapIntensity: 0.82, reflectivity: 0.7,
     }, o || {}));
@@ -192,7 +197,15 @@
   const hole = new T.Path(); const PX = O[4].x, PZ = O[4].z, PL = 14, PW = 8.4; hole.moveTo(PX - PL / 2 - 1.2, PZ - PW / 2 - 1); hole.lineTo(PX + PL / 2 + 1.2, PZ - PW / 2 - 1); hole.lineTo(PX + PL / 2 + 1.2, PZ + PW / 2 + 1); hole.lineTo(PX - PL / 2 - 1.2, PZ + PW / 2 + 1); shape.holes.push(hole);
   const gGeo = new T.ShapeGeometry(shape, 1); gGeo.rotateX(Math.PI / 2); { const uv = gGeo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 7, uv.getY(i) / 7); }
   gGeo.setAttribute('uv2', gGeo.attributes.uv);
-  const gMat = new T.MeshStandardMaterial({ color: 0xffffff, map: ltex('assets/textures/snow_diff.jpg', true), normalMap: ltex('assets/textures/snow_nor_gl.jpg'), roughnessMap: ltex('assets/textures/snow_rough.jpg'), normalScale: new T.Vector2(0.7, 0.7), side: T.DoubleSide });
+  const gMat = new T.MeshStandardMaterial({
+    color: 0xf7fafd,
+    map: ltex('assets/textures/acg/Snow008A_2K-JPG_Color.jpg', true),
+    normalMap: ltex('assets/textures/acg/Snow008A_2K-JPG_NormalGL.jpg'),
+    roughnessMap: ltex('assets/textures/acg/Snow008A_2K-JPG_Roughness.jpg'),
+    normalScale: new T.Vector2(0.55, 0.55),
+    roughness: 0.92,
+    side: T.DoubleSide,
+  });
   FK.patch(gMat, 'snow-grid-ao-glint', {}, 'float sgh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }', [
     '{ vec2 g = abs(fract(vWP.xz / 4.0 - 0.5) - 0.5) / fwidth(vWP.xz / 4.0);',
     '  float line = 1.0 - min(min(g.x, g.y), 1.0);',
