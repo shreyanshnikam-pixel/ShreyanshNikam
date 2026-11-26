@@ -33,9 +33,19 @@
     // governor: call g.tick(now) once a frame; g.pr is the pixel ratio to use; onChange(pr) applies it
     const governor = (onChange, getWH) => {
       const g = { pr: 1, ema: 16.7, last: 0, n: 0, ceil: dprCap, calm: 0, settle: 0 };
-      g.reset = () => { const [w, h] = getWH(); g.pr = startPR(w, h); g.ceil = dprCap; g.settle = 30; g.t0 = 0; onChange(g.pr); };
+      g.reset = () => { const [w, h] = getWH(); g.pr = startPR(w, h); g.top = g.pr; g.ceil = dprCap; g.settle = 30; g.t0 = 0; onChange(g.pr); };
       g.tick = (now) => {
-        if (!auto) return; // a fixed level from the Graphics panel: render exactly what was chosen
+        if (!auto) {
+          // a level chosen in the Graphics panel keeps all of its detail and effects; only its resolution eases down when frames
+          // drop below about 45 fps, and back up (never past what was chosen) when there is headroom again
+          if (g.last) g.ema = g.ema * 0.9 + Math.min(now - g.last, 100) * 0.1;
+          g.last = now; if (document.hidden || g.settle-- > 0) return;
+          if (!g.top) g.top = g.pr; if (++g.n % 30) return;
+          if (g.ema > 22 && g.pr > g.top * 0.5) { g.pr = Math.max(g.top * 0.5, g.pr * 0.85); g.calm = 0; g.settle = 40; onChange(g.pr); }
+          else if (g.ema < 15.5 && g.pr < g.top) { if (++g.calm >= 8) { g.pr = Math.min(g.top, g.pr * 1.06); g.calm = 0; g.settle = 40; onChange(g.pr); } }
+          else g.calm = 0;
+          return;
+        }
         if (!g.t0) g.t0 = now; const warm = now - g.t0 < 9000 || g.n < 400; // seconds and frames: a slow device still gets its full settling time
         if (g.last) g.ema = g.ema * 0.9 + Math.min(now - g.last, 100) * 0.1;
         g.last = now; if (document.hidden || g.settle-- > 0) return;
@@ -56,7 +66,7 @@
   const buildGfx = () => {
     const tools = document.querySelector('.hdr .tools'); if (!tools || tools.querySelector('.gfx')) return;
     const P = window.PERF, names = { auto: 'Auto', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
-    const notes = { auto: 'Picks for this device and keeps it smooth', low: 'Phones and older computers', medium: 'Built-in laptop graphics', high: 'A dedicated graphics card', ultra: 'Full resolution and every effect, nothing scaled down' };
+    const notes = { auto: 'Picks for this device and keeps it smooth', low: 'Phones and older computers', medium: 'Built-in laptop graphics', high: 'A dedicated graphics card. Resolution eases down if frames drop', ultra: 'Every effect at full detail. Resolution eases down only if frames drop' };
     const wrap = document.createElement('div'); wrap.className = 'gfx';
     wrap.innerHTML = '<button class="sound gfx-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="gfx-menu"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="t">Graphics: ' + names[P.level] + '</span></button>'
       + '<div class="gfx-menu glass" id="gfx-menu" role="radiogroup" aria-label="Graphics quality" hidden>'

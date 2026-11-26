@@ -1356,7 +1356,7 @@
     let posRate = 0;
     for (let i = 0; i < 60 * 50 * 16 && st.x < 4200; i++) {
       const t = st.t, inCl = ss(CB - 40, CB + 120, st.y) * (1 - ss(CTOP - 100, CTOP + 60, st.y));
-      const sig = 0.55 + 1.3 * inCl;
+      const sig = 0; // turbulence is applied live in planeAt (real time), never baked into the scrubbed path
       const wg = sumN(GW, t) * sig, vg = sumN(GV, t + 40) * sig * 0.9, ug = sumN(GV, t + 90) * sig * 0.6;
       // air-relative velocity (headwind adds to airspeed; the gusts move the air)
       const ax_ = st.vx + HW - ug, ay_ = st.vy - wg, V = Math.hypot(ax_, ay_), gam = Math.atan2(ay_, ax_);
@@ -1411,11 +1411,24 @@
   // the scroll keeps its story beats at the same places along the approach: these are where the airliner is at each beat
   const XK = [[0, -42000], [0.11, -30500], [0.19, -12500], [0.24, -6000], [0.30, -4600], [0.36, -3400], [0.45, -2100], [0.53, -1450], [0.64, -760], [0.745, -520], [0.80, -400], [0.88, -20], [0.955, 2400], [1.0, 3500]];
   const TK = XK.map(([pp, x]) => [pp, FLIGHT.timeAtX(x)]);
+  // Fritsch-Carlson monotone cubic through the beats: continuous speed, never running backwards
+  const TKm = (() => { const n = TK.length, d = [], m = new Array(n).fill(0);
+    for (let i = 0; i < n - 1; i++) d.push((TK[i + 1][1] - TK[i][1]) / (TK[i + 1][0] - TK[i][0]));
+    m[0] = d[0]; m[n - 1] = d[n - 2]; for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+    for (let i = 0; i < n - 1; i++) { if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; } const a = m[i] / d[i], b = m[i + 1] / d[i], h = a * a + b * b; if (h > 9) { const k = 3 / Math.sqrt(h); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; } }
+    return m; })();
+  const timeAt = (p) => { const n = TK.length; if (p <= TK[0][0]) return TK[0][1]; if (p >= TK[n - 1][0]) return TK[n - 1][1];
+    let i = 0; while (p > TK[i + 1][0]) i++; const h = TK[i + 1][0] - TK[i][0], u = (p - TK[i][0]) / h, u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * TK[i][1] + (u3 - 2 * u2 + u) * h * TKm[i] + (-2 * u3 + 3 * u2) * TK[i + 1][1] + (u3 - u2) * h * TKm[i + 1]; };
+  // live turbulence: slow, smooth sums of sines in real time, rougher inside the cloud
+  const TB = (() => { const r = FK.rng(77), c = () => Array.from({ length: 5 }, () => [0.06 + r() * 0.5, r() * 6.283, 0.4 + r() * 0.6]); return { y: c(), r: c(), p: c(), z: c() }; })();
+  const tbn = (c, t) => { let v = 0, n = 0; for (const [f, ph, a] of c) { v += Math.sin(t * f * 6.283 + ph) * a; n += a; } return v / n; };
   const XG = -520;
   const planeAt = (p, t) => {
-    const s = FLIGHT.at(FK.lin(TK, p));
+    const tm = timeAt(p), s = FLIGHT.at(tm);
     const [, x, y, z, pitch, roll, yaw, gear, n1, kt, vy, ga, flap, gsDev] = s;
-    return { x, y, z, pitch, roll, yaw, gear, n1, kt, ga: ga > 0.5, app: x > -12500, flap, vs: vy * 196.85, gsDev, ft: y * 3.281, nm: Math.max(0, (0 - x) / 1852), time: FK.lin(TK, p) };
+    const cl = ss(CB - 40, CB + 120, y) * (1 - ss(CTOP - 100, CTOP + 60, y)), a = 0.35 + 0.9 * cl;
+    return { x, y: y + tbn(TB.y, t) * 0.9 * a, z: z + tbn(TB.z, t) * 0.6 * a, pitch: pitch + tbn(TB.p, t) * 0.5 * a, roll: roll + tbn(TB.r, t) * 1.6 * a, yaw, gear, n1, kt, ga: ga > 0.5, app: x > -12500, flap, vs: vy * 196.85, gsDev, ft: y * 3.281, nm: Math.max(0, (0 - x) / 1852), time: tm };
   };
   const CH = [[0, '01', 'Cruise'], [0.11, '02', 'Descent'], [0.235, '03', 'Runway 27'], [0.36, '04', 'Final'], [0.45, '05', 'The flock'], [0.53, '06', 'Detection'], [0.64, '07', 'The tower'], [0.8, '08', 'Go around']];
   const CAPS = [
@@ -1484,15 +1497,25 @@
       return { mode: 'tower', pos, look, fov: port ? lerp(66, 56, k2) : lerp(54, 46, k2) };
     }
     // Shot 8: go-around — low beside the flock as the 747SP pitches up and climbs overhead
-    const k = sh(0.80, 0.88); const cam = V(-240, 28, -88);
-    const d = cam.distanceTo(pp); return { mode: 'ext', pos: cam, look: V(lerp(pp.x, fl.x, 0.15), lerp(pp.y, fl.y, 0.15), lerp(pp.z, fl.z, 0.15)), fov: port ? 60 : 42, shake: Math.exp(-Math.pow(d / 200, 2)) * 1.0 };
+    const k = sh(0.80, 0.88); const cam = V(-300, 24, -205); // far enough from the path that the flyby is a steady pan, not a whip
+    const d = cam.distanceTo(pp); return { mode: 'ext', pos: cam, look: V(lerp(pp.x, fl.x, 0.15), lerp(pp.y, fl.y, 0.15), lerp(pp.z, fl.z, 0.15)), fov: port ? 52 : 34, shake: Math.exp(-Math.pow(d / 260, 2)) * 0.8 };
   }
   // the former cuts, each with the half-width of scroll over which the camera travels between the two framings
-  const MOVES = [[0.30, 0.022], [0.36, 0.022], [0.45, 0.022], [0.50, 0.012], [0.53, 0.006], [0.545, 0.006], [0.64, 0.025], [0.80, 0.025], [0.88, 0.022]];
+  const MOVES = [[0.30, 0.028], [0.36, 0.028], [0.45, 0.024], [0.50, 0.014], [0.64, 0.04], [0.80, 0.033], [0.88, 0.047]];
   const _mv = new T.Matrix4(), _up = V(0, 1, 0), _qa = new T.Quaternion(), _qb = new T.Quaternion();
   const quatOf = (sh, out) => sh.quat ? out.copy(sh.quat) : out.setFromRotationMatrix(_mv.lookAt(sh.pos, sh.look, _up));
   const expOf = (m) => m === 'tower' ? 1.06 : m === 'sentry' ? 1.12 : 1.08;
+  const PHONE_MOVE = [0.5155, 0.562];
   function shotBlend(p, t, ps) {
+    if (p > PHONE_MOVE[0] && p < PHONE_MOVE[1]) {
+      const A = shot(0.5154, t, ps), Pm = shot(0.535, t, ps), B = shot(Math.max(p, 0.5451), t, ps);
+      let k = (p - PHONE_MOVE[0]) / (PHONE_MOVE[1] - PHONE_MOVE[0]); k = k * k * (3 - 2 * k);
+      // a quadratic curve that bends past the phone on its tripod, ending in its lens
+      const u = 1 - k, pos = A.pos.clone().multiplyScalar(u * u).add(Pm.pos.clone().multiplyScalar(2 * u * k)).add(B.pos.clone().multiplyScalar(k * k));
+      quatOf(A, _qa); quatOf(Pm, _qb); const qm = _qa.clone().slerp(_qb, Math.min(1, k * 2)); quatOf(B, _qb); qm.slerp(_qb, ss(0.5, 1, k));
+      const sn = ss(0.75, 1, k);
+      return { mode: k < 0.9 ? 'ext' : 'sentry', pos, quat: qm, fov: lerp(lerp(A.fov, Pm.fov, Math.min(1, k * 2)), B.fov, ss(0.5, 1, k)), shake: 0, sensor: sn, exp: lerp(expOf('ext'), expOf('sentry'), sn), moving: true };
+    }
     for (const [b, w] of MOVES) {
       if (p <= b - w || p >= b + w) continue;
       const A = shot(Math.min(p, b - 1e-5), t, ps), B = shot(Math.max(p, b + 1e-5), t, ps);
@@ -1758,12 +1781,13 @@
   const cA = new T.Color(), cB = new T.Color();
   function setLook(sh) { C.position.copy(sh.pos); if (sh.quat) C.quaternion.copy(sh.quat); else C.lookAt(sh.look); }
 
+  const shC = V(0, 0, 0), camAbs = V(0, 0, 0), refPrev = V(0, 0, 0), refNow = V(0, 0, 0), camQ = new T.Quaternion(); let camInit = false;
   function frame(now) {
     if (!visible) return;
     const dt = clamp((now - (last || now)) / 1000, 0.0005, 0.05); last = now; lt += dt; const t = lt;
     const rf = film.getBoundingClientRect(), filmOn = rf.bottom > innerHeight * 0.02;
     const p0 = forced != null ? forced : filmP();
-    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 9.5)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
+    ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 6)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
     let p = clamp(ps, 0, 1);
     govern(now);
     const back = forced == null && !filmOn;
@@ -1786,18 +1810,27 @@
     const modeChanged = sh.mode !== mode;
     if (modeChanged) { mode = sh.mode; }
     setLook(sh);
+    // final damping: the camera's offset from the airliner and its rotation ease toward the shot, filtering any remaining roughness
+    // shots that ride with the airliner carry its motion forward; cameras fixed in the world (tripod, tower, ground) stay put
+    { const ride = 1 - ss(0.42, 0.47, p) + ss(0.86, 0.9, p); refNow.copy(PL.position).multiplyScalar(clamp(ride, 0, 1));
+      if (forced == null && camInit) {
+        const k = 1 - Math.exp(-dt * 10);
+        camAbs.add(refNow).sub(refPrev).lerp(C.position, k); C.position.copy(camAbs);
+        camQ.slerp(C.quaternion, k); C.quaternion.copy(camQ);
+      } else { camAbs.copy(C.position); camQ.copy(C.quaternion); camInit = true; }
+      refPrev.copy(refNow); }
     mouse.lerp(mt, 1 - Math.exp(-dt * 2)); if (sh.sensor < 0.5) { C.rotateY(-mouse.x * 0.016 * (1 - sh.sensor)); C.rotateX(-mouse.y * 0.011 * (1 - sh.sensor)); }
-    if (sh.shake) { const k = sh.shake; C.rotateX((Math.random() - 0.5) * 0.012 * k); C.rotateY((Math.random() - 0.5) * 0.012 * k); C.position.y += (Math.random() - 0.5) * 0.25 * k; }
+    if (sh.shake) { const k = sh.shake; C.rotateX(tbn(TB.p, t * 9) * 0.006 * k); C.rotateY(tbn(TB.r, t * 8) * 0.006 * k); C.position.y += tbn(TB.y, t * 7) * 0.12 * k; }
     C.fov = sh.fov; C.near = sh.mode === 'cockpit' ? 0.04 : sh.mode === 'tower' ? 0.1 : 0.4; C.updateProjectionMatrix(); C.updateMatrixWorld(true);
     const cockpit = sh.mode === 'cockpit', inTower = sh.mode === 'tower';
     if (plane.mesh) plane.mesh.visible = !cockpit; grp.cockpit.visible = cockpit;
     Object.values(plane.sprites).forEach((s) => { s.visible = !cockpit; });
     plane.cones.forEach((c) => { c.visible = !cockpit && !bScene; });
     plane.plumes.forEach((c) => { c.visible = !cockpit && !bScene; });
-    const shCenter = inTower ? TWR : PL.position;
-    sunL.target.position.copy(shCenter); sunL.target.updateMatrixWorld();
-    sunL.position.copy(shCenter).addScaledVector(SUN, 900);
-    if (!bScene && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 6 === 0)) R.shadowMap.needsUpdate = true;
+    if (!bScene && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % (PERF.high ? 1 : 2) === 0)) {
+      const c = inTower ? TWR : PL.position, q = 0.5; shC.set(Math.round(c.x / q) * q, Math.round(c.y / q) * q, Math.round(c.z / q) * q);
+      sunL.target.position.copy(shC); sunL.target.updateMatrixWorld(); sunL.position.copy(shC).addScaledVector(SUN, 900); R.shadowMap.needsUpdate = true;
+    }
     grp.airport.visible = grp.tower.visible = !bScene; grp.flock.visible = !bScene && p > 0.3; drone.visible = phoneG.visible = !bScene && p > 0.3 && p < 0.9; vort.pts.visible = !bScene;
     const cy = C.position.y; const approach = C.position.x < 9000;
     inCloud = approach ? ss(CB - 25, CB + 140, cy) * (1 - ss(CTOP - 160, CTOP + 30, cy)) : 0;
@@ -1886,6 +1919,7 @@
   if (window.FilmPlayer && framesCv) {
     window.FilmPlayer.load(framesCv, 'assets/films/sky/manifest.json').then((pl) => { if (pl) { framePl = pl; useFrames = true; stage.classList.add('frames'); } }).catch(() => {});
   }
+  window.__pose = (p, t) => { const st = planeAt(p, t); PL.position.set(st.x, st.y, st.z); PL.updateMatrixWorld(true); updateFlock(p, t); const sh = shotBlend(p, t, p); setLook(sh); C.updateMatrixWorld(true); const q = C.quaternion; return [C.position.x, C.position.y, C.position.z, q.x, q.y, q.z, q.w, st.x, st.y, st.z]; };
   window.film = { setProgress: (v) => { forced = v == null ? null : clamp(+v, 0, 1); }, get progress() { return ps; }, get dpr() { return R.getPixelRatio(); } };
   const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
   loads.push(fontsReady);

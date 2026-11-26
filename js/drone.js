@@ -12,7 +12,7 @@
 
   function start(man) {
     const bySec = {}; man.clips.forEach((c) => { bySec[c.section] = c; });
-    const px = innerWidth * Math.min(devicePixelRatio || 1, 2), q = PF.low ? 720 : (PF.ultra || (PF.high && px > 2000)) ? 2160 : 1080;
+    const px = innerWidth * Math.min(devicePixelRatio || 1, 2), q = PF.low ? 720 : (PF.detected === 'high' && (PF.ultra || px > 2000)) ? 2160 : 1080; // 4K only with a dedicated graphics card: two 4K decodes at once stutter on built-in graphics
     const wrap = document.createElement('div'); wrap.className = 'drone'; wrap.setAttribute('aria-hidden', 'true');
     const scrim = document.createElement('div'); scrim.className = 'scrim'; wrap.appendChild(scrim);
     const world = document.getElementById('world'); (world ? world.parentNode : document.body).insertBefore(wrap, world ? world.nextSibling : null);
