@@ -1718,8 +1718,10 @@
     const lowShot = !bScene && !above && inCloud < 0.05 && cy < 260;
     slices.forEach((m, i) => {
       m.renderOrder = 10 + Math.round(2000 - Math.abs(cy - m.userData.y));
-      m.visible = bScene ? m.userData.y > CB + 300 : lowShot ? i < 2 : true;
+      m.visible = bScene ? m.userData.y > CB + 300 : lowShot ? i < 2 : above ? i >= slices.length - 2 : true;
     });
+    // above the deck only the top two layers are drawn (the rest are hidden behind them anyway), made denser to match
+    cloudU.uDen.value = (mobile ? 0.36 : 0.28) * (above ? 1.75 : 1);
     const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.visible = false;
     sky.position.copy(C.position); stars.position.copy(C.position);
     lpScale.value = H * R.getPixelRatio() / (2 * Math.tan(C.fov * DEG / 2));
