@@ -1367,14 +1367,16 @@
   function shot(p, t, ps) {
     const pp = PL.position, sh = (a, b) => clamp((p - a) / (b - a), 0, 1), fl = flockC(p, V(0, 0, 0));
     const port = W / H < 0.9;
-    // cockpit: 0 to 0.30 and 0.88 to the end
-    if (p < 0.30 || p >= 0.88) {
-      const k = p < 0.30 ? p : (p - 0.88) * 3;
-      const rig = ck.rig; const eye = CKP.clone(); eye.x += ss(0, 0.11, p) * 0.12 * (p < 0.30 ? 1 : 0);
-      const cloudShake = inCloud * 0.004; eye.y += (Math.sin(t * 13.1) + Math.sin(t * 7.3)) * cloudShake; eye.z += Math.sin(t * 9.7) * cloudShake + (port ? Math.sin(p * 40) * 0.12 : 0);
-      rig.position.copy(eye); rig.rotation.set(0, -Math.PI / 2 + Math.sin(k * 6.0) * 0.03 + (port ? Math.sin(p * 40) * 0.12 : 0), 0, 'YXZ'); rig.rotateX((p >= 0.88 ? -2 : -7.5) * DEG + Math.sin(t * 0.4) * 0.004);
-      rig.updateMatrixWorld(true); rig.getWorldPosition(_cp); rig.getWorldQuaternion(_cq);
-      return { mode: 'cockpit', pos: _cp.clone(), quat: _cq.clone(), fov: port ? 74 : 54 };
+    // third person (Shreyansh asked for this instead of the cockpit): a chase camera behind and above the 747SP,
+    // drifting slowly around it, 0 to 0.30; a low trailing view as it climbs away on the go-around, 0.88 to the end
+    if (p < 0.30) {
+      const k = sh(0, 0.30), a = lerp(-2.55, -2.25, k) + Math.sin(t * 0.21) * 0.025, r = lerp(92, 70, ss(0, 0.30, p)), up = lerp(16, 9, k);
+      const bump = inCloud * 0.35; const jx = (Math.sin(t * 9.1) + Math.sin(t * 5.3)) * bump, jy = Math.sin(t * 7.7) * bump;
+      return { mode: 'ext', pos: V(pp.x + Math.cos(a) * r + jx, pp.y + up + jy, Math.sin(a) * r * (port ? 0.8 : 1)), look: V(pp.x + 34, pp.y + 2.5, 0), fov: port ? 58 : 38 };
+    }
+    if (p >= 0.88) {
+      const k = sh(0.88, 1), a = lerp(-2.85, -3.05, k);
+      return { mode: 'ext', pos: V(pp.x + Math.cos(a) * lerp(80, 120, k), pp.y - lerp(4, 10, k), Math.sin(a) * lerp(80, 120, k)), look: V(pp.x + 30, pp.y + 6, 0), fov: port ? 56 : 36 };
     }
     if (p < 0.36) { const k = sh(0.30, 0.36); return { mode: 'ext', pos: V(pp.x + lerp(-140, 110, k), pp.y - 22, -260), look: V(pp.x + 30, pp.y + 2, 0), fov: port ? 46 : 30 }; }
     // Shot 4: heroic 3/4 front-side chase orbit showing 747SP nose, faceted dark-tinted cockpit windows, upper hump, panel seams, doors & engines
@@ -1495,7 +1497,7 @@
     if (ck2 !== capKey) { capKey = ck2; D.cap.classList.remove('on'); if (cp) { D.capT.textContent = cp[2]; D.capL.textContent = cp[3]; D.cap.className = 'cap ' + (cp[4] || ''); void D.cap.offsetWidth; D.cap.classList.add('on'); } }
     const ln = LINES.find((l) => p >= l[0] && p < l[1]), lk = ln ? ln[0] : -1;
     if (lk !== subKey) { subKey = lk; D.subs.classList.toggle('on', !!ln); if (ln) { D.who.textContent = ln[2]; D.line.textContent = ln[3]; D.who.className = 'who' + (ln[5] === 'alert' ? ' alert' : ''); if (S0.soundOn && p > lastP && p - ln[0] < 0.02) playVoice(ln, sh.mode); } }
-    const tOn = (sh.mode === 'ext' && p > 0.3 && p < 0.525) || (sh.mode === 'cockpit' && p > 0.24 && p < 0.3);
+    const tOn = sh.mode === 'ext' && p > 0.24 && p < 0.525;
     if (tOn !== teleOn) { teleOn = tOn; D.tele.classList.toggle('on', tOn); }
     if (tOn) { D.ta.textContent = 'SKY902 · B747 · RWY 27'; D.tb.textContent = `ALT ${Math.round(st.ft / 10) * 10} FT · ${Math.round(st.kt)} KT`; D.tc.textContent = `G/S 3.0° · ${st.nm.toFixed(1)} NM`; }
     const rk = p > 0.69 && p < 0.80; D.rep.classList.toggle('on', rk);
