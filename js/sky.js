@@ -1700,7 +1700,7 @@
     const above = cy > CTOP - 60;
     const pre = bScene ? 0 : 1 - ss(0.02, 0.2, p);
     setSun(bScene ? 7 : lerp(-1.4, 0.8, ss(0, 0.24, p)));
-    starsU.uA.value = bScene ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.max(1.0, DPR * q);
+    starsU.uA.value = bScene ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.max(1.0, curPR);
     S.environment = above ? envAbove : envBelow;
     if (above) { cA.setRGB(0.45, 0.54, 0.66); S.fog.color.copy(cA); S.fog.density = 0.000012; }
     else {
