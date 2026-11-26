@@ -53,7 +53,8 @@
       '  gl_FragColor = vec4(col, 1.0);',
       '}'].join('\n'),
   }));
-  sky.frustumCulled = false; S.add(sky);
+  const RL = window.REAL ? REAL.setup(R, S, C, { hdr: 'assets/textures/misty_dawn_2k.hdr', focus: 10, fogDensity: 0.018, turn: 0.5 }) : null;
+  sky.frustumCulled = false; if (!RL) S.add(sky);
 
   const textCanvas = (w, h, draw) => {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -70,7 +71,7 @@
     '  float fade = exp(-dist * 0.032);',
     '  outgoingLight = mix(outgoingLight, vec3(0.68, 0.76, 0.83), line * fade * 0.24); }'].join('\n'), true);
   const ground = new T.Mesh(new T.PlaneGeometry(500, 500).rotateX(-Math.PI / 2), gMat);
-  S.add(ground);
+  S.add(ground); if (RL) ground.visible = false;
 
   const pFrost = (() => {
     const SZ = 128, hgt = new Float32Array(SZ * SZ);
@@ -214,7 +215,7 @@
     FOV = W / H < 0.9 ? 40 : 32; [C, LC].forEach((c) => { c.fov = FOV; c.aspect = W / H; c.updateProjectionMatrix(); });
     camPose(0, LC); let low = Infinity, avg = 0; const pts = [];
     B.forEach((b, i) => { const s = spaces[i].getBoundingClientRect(), p = toPlane(LC, s.left + s.width / 2, s.top + scrollY + s.height / 2, V(0, 0, 0)), sc = sizeOf(s); pts.push([p, sc]); low = Math.min(low, p.y - sc / 2); avg += sc / B.length; });
-    const gy = low - avg * 0.42; ground.position.y = gy;
+    const gy = low - avg * 0.42; ground.position.y = gy; if (RL && RL.ground) RL.ground.position.y = gy - 0.004;
     B.forEach((b, i) => { [b.shadow, b.pool].forEach((m, j) => { m.position.set(pts[i][0].x, gy + 0.01 + j * 0.01, pts[i][0].z); m.scale.set(pts[i][1] * 1.5, 1, pts[i][1] * 0.9); }); });
   };
   window.addEventListener('resize', layout);
@@ -311,7 +312,7 @@
       b.shadow.material.uniforms.uA.value = (0.16 + 0.05 * h - 0.05 * dim) * near;
       b.pool.material.uniforms.uA.value = (0.04 + 0.25 * h) * near;
     });
-    R.render(S, C);
+    if (RL) RL.render(1 / 60); else R.render(S, C);
   }
 
   if (document.fonts) {
@@ -319,6 +320,6 @@
       .then(() => { B.forEach((b) => b.etchT.userData.redraw()); layout(); });
   }
   window.__proj = { S, C, B, ground, R, sky, gov };
-  S0.boot(Promise.resolve(), () => { layout(); });
+  S0.boot(RL ? RL.ready : Promise.resolve(), () => { layout(); });
   requestAnimationFrame(frame);
 })();

@@ -35,7 +35,8 @@
       '  #include <encodings_fragment>',
       '}'].join('\n'),
   }));
-  scene.add(sky);
+  const RL = window.REAL ? REAL.setup(renderer, scene, camera, { hdr: 'assets/textures/misty_dawn_2k.hdr', focus: 60, aperture: 0.00004, fogDensity: 0.01, turn: 0.5 }) : null;
+  if (!RL) scene.add(sky);
 
   scene.add(new T.HemisphereLight(0xf2f7fc, 0x9ab4ca, 0.85));
   const key = new T.DirectionalLight(0xffffff, 0.72); key.position.set(-120, 70, -140); scene.add(key);
@@ -93,10 +94,10 @@
     const sp = SITE.progress || 0;
     camera.position.set(Math.sin(t * 0.02) * 24 + sx * 3.5, 6 - sp * 3 - sy * 1.2, 40);
     camera.lookAt(camera.position.x * 0.6 + sx * 8, 26 - sp * 10, -200);
-    renderer.render(scene, camera);
+    if (RL) RL.render(1 / 60); else renderer.render(scene, camera);
   }
   frame(performance.now());
-  window.CREDITS_BG = { ready: Promise.resolve() };
+  window.CREDITS_BG = { ready: RL ? RL.ready : Promise.resolve() };
   let running = false, raf = 0;
   const loop = (now) => { frame(now); raf = requestAnimationFrame(loop); };
   const setRun = (on) => { if (rm || on === running) return; running = on; if (on) raf = requestAnimationFrame(loop); else cancelAnimationFrame(raf); };

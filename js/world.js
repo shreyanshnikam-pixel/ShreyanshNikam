@@ -55,6 +55,7 @@
   const rimL = new T.DirectionalLight(0xa9cbe3, 0.55);
   rimL.position.set(16, 10, -18);
   S.add(rimL);
+  const RL = window.REAL ? REAL.setup(R, S, C, { hdr: 'assets/textures/misty_dawn_2k.hdr', focus: 12, fogDensity: 0.017, turn: 0.5 }) : null;
 
   // Calm frosted studio sky dome (pure Snow #F4F7FA -> Frost #E7EEF4 -> subtle cool Glacier zenith)
   const sky = new T.Mesh(new T.SphereGeometry(420, 32, 16), new T.ShaderMaterial({
@@ -72,7 +73,7 @@
       '  gl_FragColor = vec4(col, 1.0);',
       '}'].join('\n'),
   }));
-  sky.frustumCulled = false; S.add(sky);
+  sky.frustumCulled = false; if (!RL) S.add(sky);
 
   // Procedural fine frosted micro-surface normal map (tiny 128px, generated in ~2ms, zero network cost)
   const frostMaps = (() => {
@@ -172,7 +173,7 @@
     '  ao *= 1.0 - 0.14 * exp(-dot(vWP.xz - vec2(-4.2, -160.0), vWP.xz - vec2(-4.2, -160.0)) * 0.09);',
     '  outgoingLight *= mix(vec3(0.84, 0.89, 0.94), vec3(1.0), ao);',
     '  outgoingLight = mix(outgoingLight, vec3(0.68, 0.76, 0.83), line * fade * 0.24); }'].join('\n'), true);
-  const ground = new T.Mesh(gGeo, gMat); ground.position.set(0, 0, -90); ground.receiveShadow = true; S.add(ground);
+  const ground = new T.Mesh(gGeo, gMat); ground.position.set(0, 0, -90); ground.receiveShadow = true; if (RL) ground.visible = false; S.add(ground);
 
   // ---------- 01: architectural frosted monolith ----------
   const mono = new T.Group(); mono.position.copy(O[0]); S.add(mono);
@@ -473,13 +474,14 @@
       g.position.y = O[6].y + Math.sin(t * 0.5 + g.userData.ph) * 0.07 * idle;
     });
 
-    if (poolFilmAlpha < 0.99) R.render(S, C);
+    if (poolFilmAlpha < 0.99) { if (RL) RL.render(1 / 60); else R.render(S, C); }
   }
 
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { cubes.forEach((c) => c.userData.tex.userData.redraw()); rmDrawn = -1; });
   }
   window.__world = { S, C, R, gov, poolFilm: () => poolFilm };
+  if (RL) loadAll.push(RL.ready);
   S0.boot(Promise.all(loadAll), () => { rmDrawn = -1; });
   requestAnimationFrame(frame);
 })();
