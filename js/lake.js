@@ -335,7 +335,7 @@
     const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now; frameN++;
     const t = rm ? 0 : (now - t0) / 1000;
     const target = measure();
-    tS = rm ? Math.round(target) : tS + (target - tS) * (1 - Math.exp(-dt * 4.2));
+    tS = rm ? Math.round(target) : tS + (target - tS) * (1 - Math.exp(-dt * (S0.lenis ? 14 : 6)));
     if (rm) { if (tS === rmDrawn) return; rmDrawn = tS; }
     const k = rm ? (tS >= N - 1 ? 1 : 0) : flight(tS);
     path.p.getPoint(k, tmpP); path.l.getPoint(k, tmpL);

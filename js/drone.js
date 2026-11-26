@@ -37,7 +37,7 @@
     let x = pos(), shownX = -1;
     const frame = () => {
       requestAnimationFrame(frame);
-      const target = pos(); x += (target - x) * (S0.rm ? 1 : 0.22); // a touch of smoothing so a wheel step still glides
+      const target = pos(); x += (target - x) * (S0.rm || S0.lenis ? 1 : 0.3); // a touch of smoothing so a wheel step still glides
       if (Math.abs(x - shownX) < 0.0004) return; shownX = x;
       const i = Math.min(N - 1, Math.floor(x)), f = x - i;
       const b = ss(0.58, 1.0, f); // the hand-over runs across the last stretch of each section

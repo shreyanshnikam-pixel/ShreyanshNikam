@@ -73,15 +73,21 @@
   const SITE = window.SITE = { rm, touch, glOk, progress: 0, listeners: [], onScroll: (f) => SITE.listeners.push(f) };
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  // ---- pure 100% native scrolling (instant wheel/trackpad response, zero artificial inertia lag) ----
+  // ---- smooth scrolling (Lenis) driven by the GSAP ticker so ScrollTrigger, the 3D scenes and the drone blends move as one;
+  //      touch screens keep their own native momentum, and reduced motion keeps plain scrolling ----
   SITE.lenis = null;
+  if (!rm && window.Lenis && !window.matchMedia('(pointer: coarse)').matches) {
+    const lenis = SITE.lenis = new Lenis({ lerp: 0.085, smoothWheel: true, wheelMultiplier: 0.9, touchMultiplier: 1 });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
+  }
   document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
     const id = a.getAttribute('href');
     if (id.length < 2) return;
     const el = document.querySelector(id);
     if (!el) return;
     e.preventDefault();
-    el.scrollIntoView({ behavior: rm ? 'auto' : 'smooth', block: 'start' });
+    if (SITE.lenis) SITE.lenis.scrollTo(el, { duration: 1.4 }); else el.scrollIntoView({ behavior: rm ? 'auto' : 'smooth', block: 'start' });
     el.setAttribute('tabindex', '-1');
     el.focus({ preventScroll: true });
   }));
