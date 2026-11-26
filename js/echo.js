@@ -54,6 +54,58 @@
   gov.onApply = () => { R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
   window.addEventListener('resize', onResize); onResize();
 
+  // ---------- the surface: a real mine entrance, at night, in WebGL ----------
+  // The timbered entrance of the Iwami Ginzan silver mine (Yosuke Ota, Unsplash), the same place as the Echo side of the
+  // Projects page. A depth map (Depth Anything V2) makes the photo a real 3D surface, so the walk up to it has parallax;
+  // it is graded to moonlit night with a lamp flickering deep inside and mist moving over the ground. Scrolling walks
+  // into the tunnel, and the dark inside dissolves into the descent.
+  const PH = { S: new T.Scene(), C: new T.PerspectiveCamera(40, 1, 0.05, 100), ready: false, D: 10, K: 2.2, asp: 1.5, ux: 0.5, vy: 0.74 };
+  PH.u = { tImg: { value: null }, tMap: { value: null }, uK: { value: PH.K }, uT: { value: 0 }, uA: { value: 1 }, uLamp: { value: 1 }, uIn: { value: 0 }, uC: { value: new T.Vector2(0.5, 0.26) } };
+  PH.mesh = new T.Mesh(new T.PlaneGeometry(1, 1 / PH.asp, PERF.high ? 360 : PERF.mid ? 220 : 120, PERF.high ? 240 : PERF.mid ? 147 : 80), new T.ShaderMaterial({
+    uniforms: PH.u, transparent: true, depthWrite: true,
+    vertexShader: 'uniform sampler2D tMap; uniform float uK; varying vec2 vUv; varying float vD; void main(){ vUv = uv; vec4 m = texture2D(tMap, uv); vD = m.r; vec3 p = position; p.z += pow(m.a, 1.3) * uK; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }',
+    fragmentShader: [
+      'uniform sampler2D tImg, tMap; uniform float uT, uA, uLamp, uIn; uniform vec2 uC; varying vec2 vUv; varying float vD;',
+      'float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+      'float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h2(i), h2(i+vec2(1,0)), f.x), mix(h2(i+vec2(0,1)), h2(i+vec2(1,1)), f.x), f.y); }',
+      'void main(){',
+      // leaves near the camera stir in the night air
+      '  float leaf = smoothstep(0.35, 0.8, vD) * (1.0 - smoothstep(0.3, 0.12, abs(vUv.x - 0.5)) * step(vUv.y, 0.6));',
+      '  vec2 uv = vUv + vec2(n2(vUv * 9.0 + uT * 0.35) - 0.5, n2(vUv * 9.0 + 7.0 + uT * 0.3) - 0.5) * 0.0025 * leaf;',
+      '  vec3 src = texture2D(tImg, uv).rgb; float lum = dot(src, vec3(0.299, 0.587, 0.114));',
+      // moonlight: cold, dim, the brightest surfaces keep a little silver
+      '  vec3 col = src * vec3(0.25, 0.3, 0.4) + vec3(0.06, 0.08, 0.12) * smoothstep(0.35, 0.9, lum);',
+      // the lamp deep in the tunnel, flickering, its warm light falling along the passage
+      '  vec2 d = (vUv - uC) * vec2(1.5, 1.0); float r = length(d);',
+      '  float tunnel = smoothstep(0.3, 0.04, vD) * smoothstep(0.24, 0.03, r);',
+      '  float fl = 0.72 + 0.28 * n2(vec2(uT * 8.0, 1.3)) * n2(vec2(uT * 2.7, 5.1));',
+      '  col += vec3(1.0, 0.6, 0.28) * (src * 2.6 + 0.03) * tunnel * fl * uLamp;',
+      '  col += vec3(1.0, 0.5, 0.2) * 0.05 * smoothstep(0.28, 0.0, r) * fl * uLamp;',
+      // low mist across the path and the ferns
+      '  float mist = smoothstep(0.45, 0.95, vUv.y < 0.5 ? 1.0 - vUv.y * 2.0 : 0.0);',
+      '  float m = n2(vec2(vUv.x * 4.0 - uT * 0.05, vUv.y * 9.0)) * n2(vec2(vUv.x * 9.0 + uT * 0.03, vUv.y * 17.0 + 3.0));',
+      '  col += vec3(0.11, 0.13, 0.17) * m * mist * (0.5 + 0.5 * smoothstep(0.2, 0.7, vD));',
+      // the inside of the tunnel swallows the light as you go in
+      '  col *= 1.0 - uIn * smoothstep(0.42, 0.0, r) * 0.85;',
+      '  col += (h2(gl_FragCoord.xy + fract(uT) * 91.0) - 0.5) * 0.025;',
+      '  gl_FragColor = vec4(max(col, 0.0), uA); }'].join('\n'),
+  }));
+  PH.S.add(PH.mesh);
+  { const L = new T.TextureLoader(), lt = (u, mip) => new Promise((res) => L.load(u, (x) => { x.encoding = T.LinearEncoding; if (mip) x.anisotropy = R.capabilities.getMaxAnisotropy(); else { x.generateMipmaps = false; x.minFilter = T.LinearFilter; } res(x); }, undefined, () => res(null)));
+    PH.load = Promise.all([lt('assets/projects/mine' + (PERF.high ? '_4k.webp' : '_2k.webp'), true), lt('assets/projects/mine_maps.png', false)]).then(([a, b]) => { PH.u.tImg.value = a; PH.u.tMap.value = b; PH.ready = !!(a && b); }); }
+  // the walk: from the path below the entrance, up to it, and into the passage
+  PH.place = (p, t, mx, my) => {
+    const C2 = PH.C, asp = innerWidth / innerHeight, tanH = Math.tan(T.MathUtils.degToRad(C2.fov / 2)); C2.aspect = asp;
+    const W = 1.1 * Math.max(2 * PH.D * tanH * asp, 2 * PH.D * tanH * PH.asp), Hh = W / PH.asp; PH.mesh.scale.set(W, W, 1);
+    const k = ss(0, 0.095, p), e = k * k * (3 - 2 * k), d = PH.D * lerp(1, 0.34, e);
+    const hh = d * tanH, hw = hh * asp, mxx = Math.max(0, W / 2 - hw - 0.15), myy = Math.max(0, Hh / 2 - hh - 0.15);
+    const u = lerp(0.5, PH.ux, e), v = lerp(asp < 1 ? 0.62 : 0.6, PH.vy, e);
+    const x = cl((u - 0.5) * W, -mxx, mxx), y = cl((0.5 - v) * Hh, -myy, myy);
+    const bob = Math.sin(t * 1.7) * 0.03 * e + Math.sin(t * 0.4) * 0.05;
+    C2.position.set(x + mx * 0.35 + Math.sin(t * 0.21) * 0.08, y - my * 0.2 + bob, d); C2.lookAt(x, y - 0.05 * e, 0); C2.updateProjectionMatrix();
+    PH.u.uIn.value = ss(0.06, 0.095, p); PH.u.uT.value = t;
+  };
+
   // ---------- the path: a floor line from the crevasse, down the ice chute, through the mine ----------
   const FP = [[0.2, -20, 10], [0.3, -20, 4], [-0.3, -20, -4], [0.3, -20, -12], [0.9, -20.4, -20], [0.5, -21.6, -27], [-0.6, -24, -34], [-1.4, -27.4, -41], [-1, -30.6, -48], [0.3, -33, -55], [1.1, -34.4, -61], [1.4, -34.8, -66],
     [1.9, -35, -72], [1.0, -35.3, -79], [-0.8, -35.6, -86], [-2, -35.9, -93], [-1.6, -36.1, -99], [-0.2, -36.2, -104], [1.0, -36.2, -110], [1.6, -36.2, -116], [1.2, -36.2, -121], [0.2, -36.3, -127], [-1.0, -36.4, -133],
@@ -405,6 +457,13 @@
     A.buf.noise = synth(ac, 3, (d, sr, n) => { let b = 0; for (let i = 0; i < n; i++) { b = 0.97 * b + 0.03 * (Math.random() * 2 - 1); d[i] = b * 4; } });
     A.buf.glass = synth(ac, 0.6, (d, sr, n) => { const fs = [3100, 4700, 5900, 7300, 8800]; for (let i = 0; i < n; i++) { const t = i / sr; let v = (Math.random() * 2 - 1) * Math.exp(-t * 40) * 0.5; fs.forEach((f, k) => { const t0 = k * 0.035; if (t > t0) v += Math.sin(2 * Math.PI * f * (t - t0)) * Math.exp(-(t - t0) * 18) * 0.18; }); d[i] = v; } });
     A.buf.thump = synth(ac, 0.7, (d, sr, n) => { let ph = 0; for (let i = 0; i < n; i++) { const t = i / sr; ph += 2 * Math.PI * (42 + 60 * Math.exp(-t * 18)) / sr; d[i] = Math.sin(ph) * Math.exp(-t * 6) + (Math.random() * 2 - 1) * Math.exp(-t * 30) * 0.4; } });
+    // real CC0 field recordings for the surface, the rope and the fall (Freesound; see Credits)
+    const REC = ['night', 'wind', 'gravel', 'creakloop', 'breath', 'creak', 'snap', 'stones', 'debris', 'glass', 'carabiner'];
+    REC.forEach((k) => fetch('assets/echo-audio/' + k + '.mp3').then((r) => r.arrayBuffer()).then((ab) => ac.decodeAudioData(ab)).then((b) => {
+      if (k === 'breath' || k === 'glass') A.buf[k] = b; else A.buf['r_' + k] = b;
+      if (k === 'night' || k === 'wind' || k === 'gravel' || k === 'creakloop') loop('r_' + k, b, 0);
+      if (k === 'breath') { if (A.s_breath) { try { A.s_breath.stop(); } catch (e) { /* not started */ } } loop('breath', b, 0); }
+    }).catch(() => {}));
     const wbp = ac.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 480; wbp.Q.value = 0.8; A.wbp = wbp;
     loop('wind', A.buf.noise, 0, wbp);
     const slp = ac.createBiquadFilter(); slp.type = 'lowpass'; slp.frequency.value = 1200; loop('slide', A.buf.noise, 0, slp);
@@ -413,7 +472,7 @@
     A.shaper = ac.createWaveShaper(); { const k = 60, n = 2048, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (1 + k) * x / (1 + k * Math.abs(x)); } A.shaper.curve = c; A.shaper.oversample = '4x'; }
     const sg = ac.createGain(); sg.gain.value = 0.55; A.shaper.connect(sg); sg.connect(A.out);
   }
-  function loop(name, buf, vol, filt) { const ac = A.ac, s = ac.createBufferSource(); s.buffer = buf; s.loop = true; const g = ac.createGain(); g.gain.value = vol; if (filt) { s.connect(filt); filt.connect(g); } else s.connect(g); g.connect(A.out); s.start(); A['s_' + name] = s; A['g_' + name] = g; }
+  function loop(name, buf, vol, filt) { const ac = A.ac, s = ac.createBufferSource(); s.buffer = buf; s.loop = true; if (buf.duration > 2) { s.loopStart = 0.06; s.loopEnd = buf.duration - 0.06; } const g = ac.createGain(); g.gain.value = vol; if (filt) { s.connect(filt); filt.connect(g); } else s.connect(g); g.connect(A.out); s.start(); A['s_' + name] = s; A['g_' + name] = g; }
   function panner(p) { const pn = A.ac.createPanner(); pn.panningModel = 'HRTF'; pn.distanceModel = 'inverse'; pn.refDistance = 1.2; pn.rolloffFactor = 1.1; pn.maxDistance = 300; setPos(pn, p); return pn; }
   function setPos(pn, p) { if (pn.positionX) { pn.positionX.value = p.x; pn.positionY.value = p.y; pn.positionZ.value = p.z; } else pn.setPosition(p.x, p.y, p.z); }
   function play(k, o) {
@@ -469,6 +528,7 @@
 
   // ---------- state ----------
   let forceP = null, forceA = null, snap = 0, mode = 'film';
+  let sv = 0, creakNext = 0;
   let ps = 0, pPrev = 0, camS = 0, sPrev = null, speed = 0, stepIdx = 0, stepSide = 1, beatNext = 0, shakeT = -1e9, mouse = new T.Vector2(), mt = new T.Vector2();
   let scaring = false, scareT0 = 0, scareF = null, caught = false, scareAt = 0, fear = 0, holdK = 0, blk = 0, afterK = 0, aS = 0;
   const camFwd = V(0, 0, -1), tP = V(), tL = V(), tmp = V(), tmp2 = V(), qa = new T.Quaternion(), qb = new T.Quaternion();
@@ -596,6 +656,7 @@
         const slide = ss(0.188, 0.2, p) * (1 - ss(0.25, 0.256, p)); walkK = 1 - Math.max(slide, ss(0.25, 0.256, p) * (1 - ss(0.29, 0.302, p)));
         roll = slide * (Math.sin(camS * 0.55) * 0.07) + lin([[0.255, 0], [0.259, 0.34], [0.284, 0.22], [0.302, 0]], p);
         const lie = ss(0.254, 0.262, p) * (1 - ss(0.284, 0.302, p)); if (lie > 0) tL.lerp(at(S_LAMP, 0.35, 0.1), lie);
+        if (pPrev < 0.188 && p >= 0.188 && !snap) { play('r_snap', { vol: 1.0 }); play('r_creak', { vol: 0.6, rate: 1.25, when: 0.02 }); play('r_debris', { vol: 0.55, when: 0.25, lp: 3000 }); }
         if (pPrev < 0.255 && p >= 0.255 && !snap) { shakeT = now; play('thump', { vol: 0.9 }); play('glass', { vol: 0.5, when: 0.18, pos: at(S_LAMP, 0.35, 0.1) }); }
         if (slide > 0.2) gain('slide', Math.min(0.5, speed * 0.04) * slide, 0.08); else gain('slide', 0, 0.15);
       }
@@ -689,7 +750,16 @@
       if (L.positionX) { L.positionX.value = c.x; L.positionY.value = c.y; L.positionZ.value = c.z; L.forwardX.value = fw.x; L.forwardY.value = fw.y; L.forwardZ.value = fw.z; L.upX.value = uq.x; L.upY.value = uq.y; L.upZ.value = uq.z; }
       else { L.setPosition(c.x, c.y, c.z); L.setOrientation(fw.x, fw.y, fw.z, uq.x, uq.y, uq.z); }
       const mineK = mode === 'film' ? ss(0.2, 0.27, p) : 1, silent = holdK > 0.5 || scaring;
-      gain('wind', 0.5 * Math.pow(Lf, 1.4) * (mode === 'film' ? 1 : 0)); if (A.wbp) A.wbp.frequency.value = 380 + 300 * Lf + Math.sin(t * 0.3) * 120;
+      { const film1 = mode === 'film' ? 1 : 0, surf = film1 * (1 - ss(0.085, 0.16, p)), scr = cl(Math.abs(p - pPrev) / Math.max(dt, 1e-3) * 60, 0, 1);
+        sv = sv + (scr - sv) * (1 - Math.exp(-dt * 6));
+        gain('r_night', 0.55 * surf, 0.6); gain('r_wind', 0.42 * surf + 0.12 * film1 * (1 - surf) * (1 - ss(0.2, 0.26, p)), 0.6);
+        gain('r_gravel', 0.5 * sv * film1 * (1 - ss(0.06, 0.08, p)), 0.12);   // footsteps only while you walk up to the entrance
+        const onRope = film1 * ss(0.07, 0.09, p) * (1 - ss(0.18, 0.19, p)); gain('r_creakloop', onRope * (0.15 + 0.5 * sv), 0.15);
+        if (pPrev < 0.068 && p >= 0.068 && !snap) play('r_carabiner', { vol: 0.7 });
+        if (pPrev < 0.1 && p >= 0.1 && !snap) { play('r_stones', { vol: 0.5, lp: 1800, when: 0.05 }); play('r_stones', { vol: 0.22, lp: 700, when: 0.9, rate: 0.9 }); }
+        if (onRope > 0.5 && sv > 0.25 && t > creakNext) { creakNext = t + 1.6 + Math.random() * 2.4; play('r_creak', { vol: 0.25 + 0.35 * sv, rate: 0.85 + Math.random() * 0.3, pan: (Math.random() - 0.5) * 0.6 }); }
+      }
+      gain('wind', 0.5 * Math.pow(Lf, 1.4) * (mode === 'film' ? 1 : 0) * 0.55); if (A.wbp) A.wbp.frequency.value = 380 + 300 * Lf + Math.sin(t * 0.3) * 120;
       gain('drone', silent || caught ? 0 : 0.45 * mineK, silent ? 0.08 : 0.8);
       gain('breath', silent || caught || blk > 0.5 ? 0 : (mode === 'film' ? 0.12 + 0.3 * mineK : 0.1), silent ? 0.05 : 0.5);
       if (A.s_breath) A.s_breath.playbackRate.value = 1 + fear * 0.55;
@@ -724,7 +794,12 @@
       const wantMirror = world.water && Math.abs(camS - (S_FLOOD0 + S_FLOOD1) / 2) < 42 && camS < S_FLOOD1 + 2 && blk < 0.99;
       const mirOK = wantMirror && !PERF.low; world.WU.uMirOn.value = mirOK ? 1 : 0; if (mirOK && (snap || (frameN % (PERF.high ? 3 : 6) === 0))) renderMirror(); // phones skip puddle reflections
       frameN++;
-      P.c.render(dt);
+      const phA = PH.ready && mode === 'film' ? 1 - ss(0.074, 0.1, p) : 0;
+      if (phA < 0.999) P.c.render(dt);
+      if (phA > 0.001) {
+        PH.place(p, t, mouse.x, mouse.y); PH.u.uA.value = phA;
+        R.setRenderTarget(null); const ac = R.autoClear; R.autoClear = false; if (phA >= 0.999) R.clear(); else R.clearDepth(); R.render(PH.S, PH.C); R.autoClear = ac;
+      }
     }
     pPrev = p; snap = Math.max(0, snap - 1);
   }
@@ -756,6 +831,7 @@
 
   // ---------- test hooks ----------
   window.echo = {
+    audio: () => ({ bufs: Object.keys(A.buf || {}).sort(), gains: Object.keys(A).filter((k) => k.startsWith("g_")).reduce((o, k) => (o[k.slice(2)] = +A[k].gain.value.toFixed(3), o), {}) }),
     get ready() { return ready; },
     setProgress(p) { forceA = null; forceP = cl(p, 0, 1); snap = 2; const top = film.getBoundingClientRect().top + scrollY, y = top + forceP * (film.offsetHeight - innerHeight); if (S0.lenis) S0.lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo(0, y); pPrev = forceP; },
     setAfter(a) { forceP = 1; forceA = cl(a, 0, 1); snap = 2; const r = after.getBoundingClientRect(), y = r.top + scrollY - innerHeight + a * (r.height + innerHeight * 0.5); if (S0.lenis) S0.lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo(0, y); },
@@ -767,6 +843,7 @@
     fetchJSON('assets/echo-core.json', 0.02, 0.85).then((d) => { D = d; return build(); }),
     new Promise((res) => new T.RGBELoader().load('assets/textures/snow.hdr', (tx) => { tx.mapping = T.EquirectangularReflectionMapping; const pm = new T.PMREMGenerator(R); S.environment = pm.fromEquirectangular(tx).texture; tx.dispose(); pm.dispose(); res(); }, undefined, () => res())),
     document.fonts ? document.fonts.ready : null,
+    PH.load,
   ]).then(() => { try { R.compile(S, C); } catch (e) { /* first frame compiles */ } ready = true; if (loadingEl) loadingEl.classList.add('off'); if (S0.soundOn) audioStart(); loadScare(); })
     .catch((e) => { console.error(e); if (loadingEl) loadingEl.textContent = 'The mine failed to load. Scroll on to read about Echo.'; });
   S0.boot(load);
