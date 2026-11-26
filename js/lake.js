@@ -88,7 +88,7 @@
             // a top-down photo smears on cliffs: there, real rock projected from the side takes over, tinted by the photo
             '  vec3 an = abs(normalize(vWN)); an = pow(an, vec3(4.0)); an /= (an.x + an.y + an.z);',
             '  vec3 tri = texture2D(tRock, vWP.zy / 41.0).rgb * an.x + texture2D(tRock, vWP.xz / 41.0).rgb * an.y + texture2D(tRock, vWP.xy / 41.0).rgb * an.z;',
-            '  vec3 tri2 = texture2D(tRock, vWP.zy / 9.0 + 0.3).rgb * an.x + texture2D(tRock, vWP.xz / 9.0 + 0.3).rgb * an.y + texture2D(tRock, vWP.xy / 9.0 + 0.3).rgb * an.z;',
+            (Q >= 3 ? '  vec3 tri2 = texture2D(tRock, vWP.zy / 9.0 + 0.3).rgb * an.x + texture2D(tRock, vWP.xz / 9.0 + 0.3).rgb * an.y + texture2D(tRock, vWP.xy / 9.0 + 0.3).rgb * an.z;' : '  vec3 tri2 = tri;'), // Medium and Low: one rock layer
             '  float steep = smoothstep(0.42, 0.78, 1.0 - vWN.y);',
             '  vec3 photo = diffuseColor.rgb; float pl = dot(photo, vec3(0.333));',
             '  vec3 rock = mix(tri, tri2, 0.4) * (pl * 2.4 + 0.04) * vec3(1.02, 1.0, 0.97);',
@@ -100,7 +100,7 @@
             'outgoingLight = mix(outgoingLight, diffuseColor.rgb * 1.05, 0.42);',
             '#include <output_fragment>'].join('\n'));
       };
-      m.customProgramCacheKey = () => 'lake-terrain-' + (detail ? 1 : 0);
+      m.customProgramCacheKey = () => 'lake-terrain-' + (detail ? 1 : 0) + '-' + Q;
       return m;
     };
     const step = Q >= 4 ? 1 : Q === 3 ? 2 : Q === 2 ? 2 : 3;
