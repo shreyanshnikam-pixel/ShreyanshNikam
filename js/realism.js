@@ -114,7 +114,7 @@
     window.addEventListener('resize', () => setTimeout(resize, 0)); resize();
     let t = 0;
     return {
-      ready, ground: groundMesh, composer: comp, grade: grade.uniforms, bokeh,
+      ready, ground: groundMesh, composer: comp, grade: grade.uniforms, bokeh, dome,
       setFocus: (d) => { bokeh.uniforms.focus.value += (d - bokeh.uniforms.focus.value) * 0.12; },
       resize,
       render: (dt) => { if (dome) dome.position.copy(C.position); t += dt || 0.016; grade.uniforms.uT.value = t; if (comp._w !== R.domElement.width) { comp._w = R.domElement.width; resize(); } comp.render(dt || 0.016); },
