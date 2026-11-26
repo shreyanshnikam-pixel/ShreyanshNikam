@@ -54,7 +54,7 @@
     const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
     comp.addPass(new T.RenderPass(S, C));
     const bokeh = new T.BokehPass(S, C, { focus: o.focus, aperture: o.aperture, maxblur: o.maxblur, width: innerWidth, height: innerHeight });
-    if (!o.mobile) comp.addPass(bokeh);
+    if (o.dof && !o.mobile) comp.addPass(bokeh); // off by default: Shreyansh wants a crisp, not blurred, background
     const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.22, 0.8, 0.92); comp.addPass(bloom);
     const grade = new T.ShaderPass({
       uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uExp: { value: o.exposure }, uRes: { value: new T.Vector2(1, 1) }, uFlash: { value: 0 } },
@@ -66,7 +66,7 @@
         'vec3 RRT(vec3 v){ vec3 a = v*(v + 0.0245786) - 0.000090537; vec3 b = v*(0.983729*v + 0.4329510) + 0.238081; return a/b; }',
         'vec3 aces(vec3 c){ const mat3 i = mat3(0.59719,0.07600,0.02840, 0.35458,0.90834,0.13383, 0.04823,0.01566,0.83777); const mat3 o = mat3(1.60475,-0.10208,-0.00327, -0.53108,1.10813,-0.07276, -0.07367,-0.00605,1.07602); return clamp(o * RRT(i * c), 0.0, 1.0); }',
         'void main(){',
-        '  vec2 c = vUv - 0.5; float r2 = dot(c, c); vec2 off = c * 0.0018 * (1.0 + r2 * 3.0);',
+        '  vec2 c = vUv - 0.5; float r2 = dot(c, c); vec2 off = c * 0.0005 * (1.0 + r2 * 2.0);',
         '  vec3 col = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);',
         // halation: a little red-orange glow around bright edges, like film
         '  vec3 blur = (texture2D(tDiffuse, vUv + vec2(0.004, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(0.004, 0.0)).rgb + texture2D(tDiffuse, vUv + vec2(0.0, 0.004)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, 0.004)).rgb) * 0.25;',

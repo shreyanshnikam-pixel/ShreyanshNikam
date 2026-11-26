@@ -344,7 +344,8 @@
   S.updateMatrixWorld(true);
   const pA = sampleGroup([monoMesh], PN), pC = sampleGroup(cubes.map((c) => c.children[0]), PN), pB = new Float32Array(PN * 3), pR = new Float32Array(PN);
   for (let i = 0; i < PN; i++) { const a = rnd() * Math.PI * 2, r = 1.2 + rnd() * 2.2, y = (rnd() - 0.5) * 3.2; pB.set([O[1].x + Math.cos(a) * r, O[1].y + y, O[1].z + Math.sin(a) * r], i * 3); pR[i] = rnd(); }
-  const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.BufferAttribute(pA, 3)); pg.setAttribute('aB', new T.BufferAttribute(pB, 3)); pg.setAttribute('aC', new T.BufferAttribute(pC, 3)); pg.setAttribute('aR', new T.BufferAttribute(pR, 1));
+  const pg = new T.BufferGeometry(); pA.set(pB); // no ice block to dissolve from: the particles start as the drifting cloud
+  pg.setAttribute('position', new T.BufferAttribute(pA, 3)); pg.setAttribute('aB', new T.BufferAttribute(pB, 3)); pg.setAttribute('aC', new T.BufferAttribute(pC, 3)); pg.setAttribute('aR', new T.BufferAttribute(pR, 1));
   const partU = { uK: { value: 0 }, uT: { value: 0 }, uScale: { value: innerHeight }, uCB: { value: O[1].clone() } };
   const parts = new T.Points(pg, new T.ShaderMaterial({
     uniforms: partU, transparent: true, depthWrite: false,
@@ -405,14 +406,14 @@
       if (tS === rmDrawn && rmFrames > 3) return;
       rmDrawn = tS; rmFrames++;
     }
-    mono.visible = tS < 1.45;
+    mono.visible = false; // the hero ice block was removed at Shreyansh's request; the group is kept only as a hidden reference
     monoShadow.visible = mono.visible;
-    const showCubes = tS > 1.35 && tS < 3.15; cubes.forEach((c) => { c.visible = showCubes; });
-    gl3.visible = tS > 2.72 && tS < 4.20;
-    pool.visible = tS > 3.55 && tS < 5.15;
-    const showShards = tS > 4.72 && tS < 6.18; shards.forEach((g) => { g.visible = showShards; });
-    const showPrisms = tS > 5.55 && tS < 7.05; prisms.forEach((g) => { g.visible = showPrisms; });
-    parts.visible = !rm && tS > 0.78 && tS < 2.35;
+    cubes.forEach((c) => { c.visible = false; }); // 3D stat cubes removed at Shreyansh's request: the stats live in the page as frosted cards
+    gl3.visible = false; // 3D course-level slabs removed: the schedule list carries this section
+    pool.visible = false; // the stylised 3D pool was removed at Shreyansh's request (only a real Cycles pool film may stand in here)
+    shards.forEach((g) => { g.visible = false; }); // 3D award crystals removed: the award cards carry this section
+    prisms.forEach((g) => { g.visible = false; }); // 3D numbered prisms removed: the 'How I work' cards carry this section
+    parts.visible = false; // the drifting particle cloud was removed at Shreyansh's request (it read as out-of-place snow)
 
     const k = Math.max(0, Math.min(N - 1, held(tS)));
     curP.getPoint(k / (N - 1), tmpP); curL.getPoint(k / (N - 1), tmpL);
