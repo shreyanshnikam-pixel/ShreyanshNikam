@@ -36,7 +36,7 @@
       g.reset = () => { const [w, h] = getWH(); g.pr = startPR(w, h); g.ceil = dprCap; g.settle = 30; g.t0 = 0; onChange(g.pr); };
       g.tick = (now) => {
         if (!auto) return; // a fixed level from the Graphics panel: render exactly what was chosen
-        if (!g.t0) g.t0 = now; const warm = now - g.t0 < 9000;
+        if (!g.t0) g.t0 = now; const warm = now - g.t0 < 9000 || g.n < 400; // seconds and frames: a slow device still gets its full settling time
         if (g.last) g.ema = g.ema * 0.9 + Math.min(now - g.last, 100) * 0.1;
         g.last = now; if (document.hidden || g.settle-- > 0) return;
         if (++g.n % 20) return;
