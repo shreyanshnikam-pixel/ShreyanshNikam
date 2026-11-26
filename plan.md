@@ -8,6 +8,8 @@ reproduced word for word in **Appendix A** and in `docs/original-prompt.md`.
 
 ## 0. Status (update this every time you stop)
 
+**Hosting (2026-11-25):** Cloudflare Pages project `shreyansh-nikam` is now linked to GitHub `shreyanshnikam-pixel/ShreyanshNikam` (branch `main`, no build command, output = repo root). Every push to main deploys to https://shreyansh-nikam.pages.dev within about a minute. `deploy.bat` is no longer needed. The horizon seam is fixed (the far ground fades into the HDR photo in realism.js), and the Misty Dawn, Withered Grass and Lakeside Dawn credits are in credits.html.
+
 **2026-11-25 evening, photographic pass (Shreyansh: "very realistic, like it was shot in real life; frosted feel without too much snow and ice"):** new `js/realism.js` (window.REAL.setup) used by Home, Projects and Credits. A real HDR photograph (Poly Haven `misty_dawn`, CC0, turned 180° via `turn: 0.5` so the big tree isn't behind the text) lights the scene and fills the sky; a photo-scanned frosted-grass ground (Poly Haven `withered_grass`, CC0) runs into mist whose colour is sampled from the photo's horizon; camera finish = depth of field (BokehPass, appended to js/vendor/three-bundle.js with BokehShader), ACES (Hill fit) film response, halation, faint chromatic fringing, lens vignette, grain. The old studio sky dome and grid ground are hidden when REAL is present. Frosted-glass objects unchanged. Credits for misty_dawn / withered_grass / lakeside_dawn still need adding to credits.html.
 
 
