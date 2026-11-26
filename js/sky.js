@@ -1648,7 +1648,7 @@
   let forced = null, lastForced = null, ps = 0, lastP = 0, lt = 0, last = 0, visible = true, frameN = 0, mode = null, useFrames = false, framePl = null, lastMonT = -1e9;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
   const filmP = () => { const r = film.getBoundingClientRect(); return clamp(-r.top / Math.max(1, r.height - innerHeight), 0, 1); };
-  let inCloud = 0;
+  let inCloud = 0, bk = 0;
   const mt = new T.Vector2(), mouse = new T.Vector2(); window.addEventListener('pointermove', (e) => mt.set(e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1), { passive: true });
   const cA = new T.Color(), cB = new T.Color();
   function setLook(sh) { C.position.copy(sh.pos); if (sh.quat) C.quaternion.copy(sh.quat); else C.lookAt(sh.look); }
@@ -1660,11 +1660,13 @@
     const rf = film.getBoundingClientRect(), filmOn = rf.bottom > innerHeight * 0.02;
     const p0 = forced != null ? forced : filmP();
     ps = forced != null ? p0 : ps + (p0 - ps) * (1 - Math.exp(-dt * 9.5)); if (Math.abs(p0 - ps) < 1e-5) ps = p0;
-    const p = clamp(ps, 0, 1);
+    let p = clamp(ps, 0, 1);
     govern(now);
     const back = forced == null && !filmOn;
     frameN++;
-    if (back && (frameN % 2)) return;
+    // after the film, the sections scroll over a slow replay of the project itself: final approach, the flock, the drone
+    if (back) { bk += (backdropQ() - bk) * (1 - Math.exp(-dt * 3)); p = 0.30 + bk * 0.235; }
+    const bScene = false;
     lpT.value = t; flockU.uT.value = t; cloudU.uT.value = t; snowU.uT.value = t; G.uT.value = t;
     const st = planeAt(p, t);
     PL.position.set(st.x, st.y, st.z); PL.rotation.set(0, 0, 0); body.rotation.set(st.roll * DEG, 0, st.pitch * DEG);
@@ -1676,11 +1678,7 @@
     dr.leds.forEach((l, i) => { l.visible = Math.sin(t * 6 + i) > -0.2; }); dr.strobe.visible = (t * 1.2) % 1 < 0.06;
     PL.updateMatrixWorld(true);
     let sh;
-    if (back) {
-      const k = backdropQ();
-      sh = { mode: 'back', pos: V(-30000 + k * 9000 + Math.sin(t * 0.05) * 60, 2350 - k * 500 + Math.sin(t * 0.13) * 8, -1500 + Math.sin(k * 3) * 800), fov: W / H < 0.9 ? 70 : 48 };
-      sh.look = sh.pos.clone().add(V(1000, -110 - k * 80, -380 + Math.sin(t * 0.04) * 60));
-    } else sh = shot(p, t, ps);
+    sh = shot(p, t, ps);
     const modeChanged = sh.mode !== mode;
     if (modeChanged) { mode = sh.mode; }
     setLook(sh);
@@ -1690,19 +1688,19 @@
     const cockpit = sh.mode === 'cockpit', inTower = sh.mode === 'tower';
     if (plane.mesh) plane.mesh.visible = !cockpit; grp.cockpit.visible = cockpit;
     Object.values(plane.sprites).forEach((s) => { s.visible = !cockpit; });
-    plane.cones.forEach((c) => { c.visible = !cockpit && !back; });
-    plane.plumes.forEach((c) => { c.visible = !cockpit && !back; });
+    plane.cones.forEach((c) => { c.visible = !cockpit && !bScene; });
+    plane.plumes.forEach((c) => { c.visible = !cockpit && !bScene; });
     const shCenter = inTower ? TWR : PL.position;
     sunL.target.position.copy(shCenter); sunL.target.updateMatrixWorld();
     sunL.position.copy(shCenter).addScaledVector(SUN, 900);
-    if (!back && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 6 === 0)) R.shadowMap.needsUpdate = true;
-    grp.airport.visible = grp.tower.visible = !back; grp.flock.visible = !back && p > 0.3; drone.visible = phoneG.visible = !back && p > 0.3 && p < 0.9; vort.pts.visible = !back;
+    if (!bScene && !cockpit && sh.mode !== 'sentry' && (modeChanged || frameN % 6 === 0)) R.shadowMap.needsUpdate = true;
+    grp.airport.visible = grp.tower.visible = !bScene; grp.flock.visible = !bScene && p > 0.3; drone.visible = phoneG.visible = !bScene && p > 0.3 && p < 0.9; vort.pts.visible = !bScene;
     const cy = C.position.y; const approach = C.position.x < 9000;
     inCloud = approach ? ss(CB - 25, CB + 140, cy) * (1 - ss(CTOP - 160, CTOP + 30, cy)) : 0;
     const above = cy > CTOP - 60;
-    const pre = back ? 0 : 1 - ss(0.02, 0.2, p);
-    setSun(back ? 7 : lerp(-1.4, 0.8, ss(0, 0.24, p)));
-    starsU.uA.value = back ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.max(1.0, DPR * q);
+    const pre = bScene ? 0 : 1 - ss(0.02, 0.2, p);
+    setSun(bScene ? 7 : lerp(-1.4, 0.8, ss(0, 0.24, p)));
+    starsU.uA.value = bScene ? 0 : above ? pre * 0.9 : 0; starsU.uScale.value = Math.max(1.0, DPR * q);
     S.environment = above ? envAbove : envBelow;
     if (above) { cA.setRGB(0.45, 0.54, 0.66); S.fog.color.copy(cA); S.fog.density = 0.000012; }
     else {
@@ -1712,15 +1710,15 @@
       S.fog.density = lerp(0.000075, 0.011, Math.pow(inCloud, 1.5));
     }
     cloudU.uFogD.value = S.fog.density; cloudU.uFogC.value.copy(S.fog.color); lpFog.value = S.fog.density;
-    if (back) { cloudU.uLit.value.setRGB(1.0, 0.98, 0.97); cloudU.uShade.value.setRGB(0.6, 0.67, 0.78); cloudU.uSunC.value.setRGB(1.0, 0.85, 0.7); }
+    if (bScene) { cloudU.uLit.value.setRGB(1.0, 0.98, 0.97); cloudU.uShade.value.setRGB(0.6, 0.67, 0.78); cloudU.uSunC.value.setRGB(1.0, 0.85, 0.7); }
     else if (above) { cloudU.uLit.value.setRGB(0.78 + pre * -0.25, 0.6 - pre * 0.2, 0.55 - pre * 0.12); cloudU.uShade.value.setRGB(0.16, 0.19, 0.28); cloudU.uSunC.value.setRGB(1.0, 0.55, 0.3).multiplyScalar(1 - pre * 0.5); }
     else { cloudU.uLit.value.setRGB(0.44, 0.50, 0.60); cloudU.uShade.value.setRGB(0.16, 0.21, 0.30); cloudU.uSunC.value.setRGB(0.95, 0.62, 0.38); }
-    hemi.intensity = back ? 1.2 : above ? 0.35 + (1 - pre) * 0.35 : 0.42;
-    sunL.intensity = back ? 2 : above ? 0.8 * (1 - pre * 0.7) : 0.78;
-    const lowShot = !back && !above && inCloud < 0.05 && cy < 260;
+    hemi.intensity = bScene ? 1.2 : above ? 0.35 + (1 - pre) * 0.35 : 0.42;
+    sunL.intensity = bScene ? 2 : above ? 0.8 * (1 - pre * 0.7) : 0.78;
+    const lowShot = !bScene && !above && inCloud < 0.05 && cy < 260;
     slices.forEach((m, i) => {
       m.renderOrder = 10 + Math.round(2000 - Math.abs(cy - m.userData.y));
-      m.visible = back ? m.userData.y > CB + 300 : lowShot ? i < 2 : true;
+      m.visible = bScene ? m.userData.y > CB + 300 : lowShot ? i < 2 : true;
     });
     const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.visible = false;
     sky.position.copy(C.position); stars.position.copy(C.position);
@@ -1750,14 +1748,14 @@
       ck.levers.forEach((l) => { l.rotation.z = -0.2 - st.n1 * 0.55; });
     }
     wetU.uWet.value = cockpit ? clamp(inCloud * 1.3 + (p > 0.24 && p < 0.3 ? 0.35 * (1 - ss(0.24, 0.3, p)) : 0), 0, 1) : 0; wetU.uFlow.value = 0.6 + st.kt / 300;
-    let exp = back ? 0.85 : above ? lerp(0.95, 0.72, 1 - pre) : sh.mode === 'tower' ? 1.06 : sh.mode === 'sentry' ? 1.12 : 1.08;
+    let exp = back ? 1.0 : above ? lerp(0.95, 0.72, 1 - pre) : sh.mode === 'tower' ? 1.06 : sh.mode === 'sentry' ? 1.12 : 1.08;
     exp *= 1 - inCloud * 0.10;
     let dip = 0; if (!back) for (const c of CUTS) { const d = Math.abs(p - c); dip = Math.max(dip, 1 - ss(0.0007, 0.0045, d)); }
-    let white = back ? ss(-innerHeight * 0.85, innerHeight * 0.02, rf.bottom) * 0.95 : inCloud * 0.45 + ss(0.935, 0.975, p) * 1.0;
+    let white = back ? 0 : inCloud * 0.45 + ss(0.935, 0.975, p) * 1.0;
     if (!back && p > 0.53 && p < 0.548) white = Math.max(white, 1 - ss(0.0, 0.006, Math.abs(p - 0.545)));
     G.uExp.value = exp; G.uDip.value = dip * (p > 0.53 && p < 0.55 ? 0 : 1); G.uWhite.value = Math.min(1, white);
-    G.uSensor.value = sh.mode === 'sentry' ? 1 : 0; G.uCA.value = 0.0005 + (sh.shake || 0) * 0.004; G.uSat.value = back ? 0.55 : 1.04;
-    G.uTint.value.set(back ? 0.97 : 1.0, 1.0, back ? 1.06 : 1.02); G.uLift.value = back ? 0.1 : 0; G.uVig.value = back ? 0.22 : 0.36; G.uGrain.value = back ? 0.004 : 0.008;
+    G.uSensor.value = sh.mode === 'sentry' ? 1 : 0; G.uCA.value = 0.0005 + (sh.shake || 0) * 0.004; G.uSat.value = back ? 0.92 : 1.04;
+    G.uTint.value.set(1.0, 1.0, 1.02); G.uLift.value = back ? 0.02 : 0; G.uVig.value = back ? 0.32 : 0.36; G.uGrain.value = back ? 0.004 : 0.008;
     bloom.threshold = sh.mode === 'tower' ? 1.02 : 1.08;
     bloom.strength = back ? 0.22 : sh.mode === 'tower' ? 0.32 : 0.34;
     // sound
