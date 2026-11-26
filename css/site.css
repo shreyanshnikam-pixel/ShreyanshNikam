@@ -48,7 +48,7 @@ p{margin:0 0 1em;max-width:62ch}
 .sec.right{justify-content:flex-end}
 .sec .copy{position:relative}
 .sec .copy::before{content:"";position:absolute;inset:-34px -40px;z-index:-1;pointer-events:none;border-radius:28px;background:rgba(244,247,250,.66);-webkit-mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent),linear-gradient(180deg,transparent,#000 26px,#000 calc(100% - 26px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent),linear-gradient(180deg,transparent,#000 26px,#000 calc(100% - 26px),transparent);mask-composite:intersect}
-.hero>*{position:relative}.hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:62%;background:linear-gradient(90deg,rgba(244,247,250,.7),rgba(244,247,250,.35) 50%,rgba(244,247,250,0));pointer-events:none}
+.hero>*{position:relative}.hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:58%;background:linear-gradient(90deg,rgba(244,247,250,.56),rgba(244,247,250,.24) 52%,rgba(244,247,250,0));pointer-events:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 62%,transparent);mask-image:linear-gradient(180deg,transparent,#000 12%,#000 62%,transparent)}
 .hero{position:relative}
 .sec.center{justify-content:center;text-align:center}.sec.center .copy{width:min(880px,90vw)}.sec.center p{margin-inline:auto}
 .tall{min-height:220vh}
