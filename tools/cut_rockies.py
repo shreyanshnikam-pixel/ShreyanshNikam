@@ -2,7 +2,9 @@
 """Cut the background moments from "The Rockies | Cinematic Drone 4K Video" by stoked tour (Samson Tan), used with
 the creator's permission, into seamless looping clips for the Home page.
 
-    python3 tools/cut_rockies.py /path/to/the_rockies.mp4
+    python3 tools/cut_rockies.py /path/to/the_rockies.mp4          (the original file)
+    python3 tools/cut_rockies.py /path/to/folder_of_recordings     (rockies_<name>_from<t0>_x3.mp4, recorded in Chrome
+                                                                    at one-third speed in 4K; t0 = video time at frame 0)
 
 Writes assets/rockies/<name>_1080.mp4, <name>_720.mp4 and <name>.webp (poster) for every moment below.
 Each loop crossfades its last second into its first, so it repeats without a jump. No audio."""
@@ -26,12 +28,15 @@ def run(args):
     subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
 
-def cut(src, name, s, e, height, crf):
-    """body = [s+XF, e]; its last XF seconds blend into [s, s+XF], so the clip ends where it begins."""
+def cut(src, name, s, e, height, crf, slow=1.0):
+    """body = [s+XF, e]; its last XF seconds blend into [s, s+XF], so the clip ends where it begins.
+    slow > 1: the source was recorded slowed down; it is brought back to real speed first."""
     L = e - s - XF
     dst = os.path.join(OUT, f'{name}_{height}.mp4')
-    flt = (f"[0:v]trim=start={s + XF}:end={e},setpts=PTS-STARTPTS,scale=-2:{height}:flags=lanczos,fps=30,format=yuv420p[a];"
-           f"[0:v]trim=start={s}:end={s + XF},setpts=PTS-STARTPTS,scale=-2:{height}:flags=lanczos,fps=30,format=yuv420p[b];"
+    pre = f"setpts=(PTS-STARTPTS)/{slow},fps=24," if slow != 1.0 else ""
+    sc = "-2:'min(2160,ih)'" if height == 2160 else f"-2:{height}"  # 4K stays at the source's native size, never stretched
+    flt = (f"[0:v]{pre}trim=start={s + XF}:end={e},setpts=PTS-STARTPTS,scale={sc}:flags=lanczos,fps=24,format=yuv420p[a];"
+           f"[0:v]{pre}trim=start={s}:end={s + XF},setpts=PTS-STARTPTS,scale={sc}:flags=lanczos,fps=24,format=yuv420p[b];"
            f"[a][b]xfade=transition=fade:duration={XF}:offset={L - XF}[v]")
     run(['ffmpeg', '-y', '-i', src, '-filter_complex', flt, '-map', '[v]', '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', str(crf),
          '-profile:v', 'high', '-movflags', '+faststart', '-pix_fmt', 'yuv420p', dst])
@@ -42,10 +47,16 @@ def main():
     src = sys.argv[1]
     os.makedirs(OUT, exist_ok=True)
     manifest = {'credit': 'The Rockies | Cinematic Drone 4K Video by stoked tour (Samson Tan), used with permission', 'source': 'https://www.youtube.com/watch?v=zzMo2dy7mNY', 'clips': []}
+    import glob, re
     for sec, name, s, e, alt in MOMENTS:
-        cut(src, name, s, e, 1080, 22)
-        cut(src, name, s, e, 720, 25)
-        run(['ffmpeg', '-y', '-ss', str(s + XF + 0.2), '-i', src, '-frames:v', '1', '-vf', 'scale=-2:720:flags=lanczos', os.path.join(OUT, f'{name}.webp')])
+        f, slow = src, 1.0
+        if os.path.isdir(src):  # one Chrome recording per moment: times become relative to its first frame
+            hits = glob.glob(os.path.join(src, f'rockies_{name}_from*_x3.mp4'))
+            if not hits: print('missing recording for', name); continue
+            f = sorted(hits)[-1]; t0 = float(re.search(r'_from([0-9.]+)_x3', f).group(1)); s, e, slow = s - t0, e - t0, 3.0
+        for height, crf in [(2160, 20), (1080, 22), (720, 25)]:
+            cut(f, name, s, e, height, crf, slow)
+        run(['ffmpeg', '-y', '-ss', str((s + XF + 0.2) * slow), '-i', f, '-frames:v', '1', '-vf', 'scale=-2:720:flags=lanczos', os.path.join(OUT, f'{name}.webp')])
         manifest['clips'].append({'section': sec, 'name': name, 'alt': alt})
         print('cut', name)
     json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)

@@ -10,7 +10,7 @@
 
   function start(man) {
     const bySec = {}; man.clips.forEach((c) => { bySec[c.section] = c; });
-    const q = PF.low ? 720 : 1080;
+    const px = innerWidth * Math.min(devicePixelRatio || 1, 2), q = PF.low ? 720 : (PF.ultra || (PF.high && px > 2000)) ? 2160 : 1080; // 4K on High/Ultra big screens
     const wrap = document.createElement('div'); wrap.className = 'drone'; wrap.setAttribute('aria-hidden', 'true');
     const mk = () => { const v = document.createElement('video'); v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'none'; v.disablePictureInPicture = true; wrap.appendChild(v); return v; };
     const A = mk(), B = mk(), scrim = document.createElement('div'); scrim.className = 'scrim'; wrap.appendChild(scrim);
