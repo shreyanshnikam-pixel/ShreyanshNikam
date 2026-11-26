@@ -288,13 +288,13 @@
   comp.addPass(grade);
   const G = grade.uniforms;
   let DPR = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2), q = 1, W = 1, H = 1;
-  const applySize = () => { const pr = Math.max(1.0, DPR * q); R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(Math.max(64, W >> 1), Math.max(64, H >> 1)); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
+  const applySize = () => { const pr = Math.max(0.62, DPR * q); R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(Math.max(64, W >> 2), Math.max(64, H >> 2)); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
   const sizeOvl = () => { const pr = Math.max(1.0, Math.min(window.devicePixelRatio || 1, 2)); ovl.width = Math.round(W * pr); ovl.height = Math.round(H * pr); ovl.style.width = W + 'px'; ovl.style.height = H + 'px'; };
   const resize = () => { W = innerWidth; H = innerHeight; C.aspect = W / H; C.updateProjectionMatrix(); applySize(); };
   window.addEventListener('resize', resize); resize();
   // frame-time governor: trims resolution only down to 1.0 DPR (never blurry sub-1x soup)
   let ema = 16, gl0 = 0, fcount = 0;
-  const govern = (now) => { if (gl0) ema = ema * 0.93 + Math.min(80, now - gl0) * 0.07; gl0 = now; if (++fcount % 45) return; const minQ = Math.min(1, 1 / Math.max(1, DPR)); let nq = q; if (ema > 28 && q > minQ) nq = Math.max(minQ, q - 0.1); else if (ema < 16 && q < 1) nq = Math.min(1, q + 0.05); if (nq !== q) { q = nq; applySize(); } };
+  const govern = (now) => { if (gl0) ema = ema * 0.9 + Math.min(120, now - gl0) * 0.1; gl0 = now; if (++fcount % 20) return; const minPR = Math.max(0.62, Math.min(1, 1700 / Math.max(1, W))), minQ = Math.min(1, minPR / Math.max(1, DPR)); let nq = q; if (ema > 21 && q > minQ) nq = Math.max(minQ, q - (ema > 40 ? 0.15 : 0.07)); else if (ema < 14 && q < 1) nq = Math.min(1, q + 0.04); if (Math.abs(nq - q) > 1e-3) { q = nq; applySize(); } };
 
   // ================= small helpers =================
   const cnv = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; if (draw) draw(c.getContext('2d'), w, h); return c; };
@@ -346,7 +346,7 @@
   S.fog = new T.FogExp2(0x9aa7b6, 0.00016);
 
   // ================= clouds: streamlined volumetric slices (fast FPS, crisp overcast) =================
-  const NSL = mobile ? 6 : 10;
+  const NSL = mobile ? 5 : 7;
   const cloudU = { uT: { value: 0 }, uFogD: { value: 0.0001 }, uFogC: { value: new T.Color() }, uLit: { value: new T.Color() }, uShade: { value: new T.Color() }, uSunC: { value: new T.Color() }, uSun: { value: SUN.clone() }, uDen: { value: mobile ? 0.36 : 0.28 }, uClear: { value: 1 } };
   const cloudVS = LOGV + 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}';
   const cloudFS = LOGF + NOISE + [
@@ -356,8 +356,8 @@
     '  vec3 d = vW - cameraPosition; float dist = length(d); vec3 vd = d / max(dist, 1e-3);',
     '  vec2 q = vW.xz * 0.00042 + vec2(uT*0.0035, uT*0.0012);',
     '  float n = 0.0, a = 0.5; vec3 p = vec3(q, uH*1.25);',
-    '  for (int i = 0; i < 3; i++){ n += a*nn3(p); p = p*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }',
-    '  n = n * 0.82 + nn3(vec3(vW.xz*0.0024, uH*3.0 + uT*0.02)) * 0.18;',
+    '  for (int i = 0; i < 2; i++){ n += a*nn3(p); p = p*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }',
+    '  n = n * 1.1 + nn3(vec3(vW.xz*0.0024, uH*3.0 + uT*0.02)) * 0.16;',
     '  float cov = mix(0.26, 0.6, pow(uH, 1.2)) + smoothstep(9000.0, 17000.0, vW.x) * 0.45 * uClear;',
     '  float den = smoothstep(cov, cov + 0.17, n);',
     '  if (den < 0.003) discard;',
@@ -1788,5 +1788,6 @@
   const all = Promise.all(loads);
   all.then(() => { D.load.classList.add('off'); });
   S0.boot(all, () => { try { R.compile(S, C); } catch (e) {} });
+  window.__sky = { S, C, R, comp, slices, bloom, govern: () => ({ q, ema, DPR }) };
   requestAnimationFrame(frame);
 })();
