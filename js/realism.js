@@ -14,6 +14,7 @@
     const fogCol = new T.Color('#C9D3DA');
     S.fog = new T.FogExp2(fogCol, o.fogDensity);
     let groundMesh = null;
+    const uBg = { value: null }, uBgOn = { value: 0 };
     const ready = new Promise((res) => {
       new T.RGBELoader().load(o.hdr, (tx) => {
         tx.mapping = T.EquirectangularReflectionMapping;
@@ -22,6 +23,7 @@
           for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const nx = (x + sh) % W, a = (y * W + x) * ch, b = (y * W + nx) * ch; for (let k = 0; k < ch; k++) out[b + k] = d[a + k]; }
           tx.image.data = out; tx.needsUpdate = true; }
         S.background = tx; S.environment = pm.fromEquirectangular(tx).texture;
+        uBg.value = tx; uBgOn.value = 1;
         // match the mist to the photo's horizon so the ground melts into it
         try {
           const W = tx.image.width, H = tx.image.height, d = tx.image.data, ch = d.length / (W * H), f = tx.type === T.HalfFloatType ? T.DataUtils.fromHalfFloat : (v) => v;
@@ -39,6 +41,9 @@
       const m = new T.MeshStandardMaterial({ map: tl('assets/textures/withered_grass_diff.jpg', true), normalMap: tl('assets/textures/withered_grass_nor_gl.jpg'), roughnessMap: tl('assets/textures/withered_grass_rough.jpg'), color: 0xa9b3b4, envMapIntensity: 0.8 });
       // break up tiling with large-scale tone variation and a frosty sheen in the low spots
       m.onBeforeCompile = (sh) => {
+        // far away, the ground dissolves into the photograph behind it, so there is no seam at the horizon
+        sh.uniforms.tBgPhoto = uBg; sh.uniforms.uBgOn = uBgOn;
+        sh.fragmentShader = 'uniform sampler2D tBgPhoto; uniform float uBgOn;\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n { vec3 dv = normalize(vWG - cameraPosition); vec2 euv = vec2(atan(dv.z, dv.x) * 0.15915494 + 0.5, asin(clamp(dv.y, -1.0, 1.0)) * 0.31830989 + 0.5); float dd = length(vWG.xz - cameraPosition.xz); float w = smoothstep(45.0, 220.0, dd) * uBgOn; gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(tBgPhoto, euv).rgb, w); }');
         sh.vertexShader = 'varying vec3 vWG;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWG = (modelMatrix * vec4(transformed, 1.0)).xyz;');
         sh.fragmentShader = 'varying vec3 vWG;\nfloat gh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); } float gn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh(i),gh(i+vec2(1,0)),f.x),mix(gh(i+vec2(0,1)),gh(i+vec2(1,1)),f.x),f.y); }\n' +
           sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n { vec2 q = vWG.xz; float v = gn(q * 0.03) * 0.6 + gn(q * 0.11) * 0.4; diffuseColor.rgb *= 0.78 + 0.42 * v; float frost = smoothstep(0.55, 0.85, gn(q * 0.07 + 3.0)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.85, 0.88), frost * 0.35); }');
