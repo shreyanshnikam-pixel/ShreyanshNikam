@@ -33,7 +33,8 @@
       '  vec3 c = texture2D(tBgLo, uv).rgb;',
       '  vec2 qa = (uv - uRa.xy) / max(uRa.zw - uRa.xy, vec2(1e-5)); vec3 ca = bgDec(texture2D(tCa, clamp(qa, 0.0, 1.0)).rgb); c = mix(c, ca, bgW(qa) * uOnA);',
       '  vec2 qb = (uv - uRb.xy) / max(uRb.zw - uRb.xy, vec2(1e-5)); vec3 cb = bgDec(texture2D(tCb, clamp(qb, 0.0, 1.0)).rgb); c = mix(c, cb, bgW(qb) * uOnB);',
-      '  return c; }'].join('\n');
+      '  return c; }',
+      'vec3 bgLo(vec3 d){ d = normalize(d); return texture2D(tBgLo, vec2(atan(d.z, d.x) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5)).rgb; }'].join('\n');
     let dome = null;
     if (crops.length) {
       dome = new T.Mesh(new T.SphereGeometry(420, 48, 24), new T.ShaderMaterial({ uniforms: bgU, side: T.BackSide, depthWrite: false, fog: false,
@@ -70,7 +71,7 @@
       m.onBeforeCompile = (sh) => {
         // far away, the ground dissolves into the photograph behind it, so there is no seam at the horizon
         Object.assign(sh.uniforms, bgU);
-        sh.fragmentShader = BG_GLSL + '\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n { float dd = length(vWG.xz - cameraPosition.xz); float w = smoothstep(45.0, 220.0, dd) * uBgOn; gl_FragColor.rgb = mix(gl_FragColor.rgb, bgSample(vWG - cameraPosition), w); }');
+        sh.fragmentShader = BG_GLSL + '\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n { float dd = length(vWG.xz - cameraPosition.xz); float w = smoothstep(45.0, 220.0, dd) * uBgOn; gl_FragColor.rgb = mix(gl_FragColor.rgb, bgLo(vWG - cameraPosition), w); }');
         sh.vertexShader = 'varying vec3 vWG;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWG = (modelMatrix * vec4(transformed, 1.0)).xyz;');
         sh.fragmentShader = 'varying vec3 vWG;\nfloat gh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); } float gn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh(i),gh(i+vec2(1,0)),f.x),mix(gh(i+vec2(0,1)),gh(i+vec2(1,1)),f.x),f.y); }\n' +
           sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n { vec2 q = vWG.xz; float v = gn(q * 0.03) * 0.6 + gn(q * 0.11) * 0.4; diffuseColor.rgb *= 0.78 + 0.42 * v; float frost = smoothstep(0.55, 0.85, gn(q * 0.07 + 3.0)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.85, 0.88), frost * 0.35); }');

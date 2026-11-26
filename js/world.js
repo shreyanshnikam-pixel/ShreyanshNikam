@@ -148,11 +148,11 @@
     { p: V(-0.4, 3.0, 12.6), l: V(1.6, 3.0, 0) },
     { p: V(0.6, 2.3, -14), l: V(2.6, 2.9, -26) },
     { p: V(-1.4, 2.9, -39.5), l: V(-1.6, 2.6, -52) },
-    { p: V(1.4, 2.5, -67.5), l: V(2.6, 1.2, -80) },
-    { p: V(-1.2, 3.2, -94.5), l: V(-3.8, 0.05, -106) },
+    { p: V(1.4, 2.5, -67.5), l: V(2.6, 2.6, -80) },
+    { p: V(-1.2, 3.2, -94.5), l: V(-3.8, 2.6, -106) },
     { p: V(0.8, 3.3, -121.0), l: V(2.2, 3.1, -134) },
     { p: V(-0.8, 3.2, -148.5), l: V(-2.4, 2.9, -160) },
-    { p: V(0, 22, -184), l: V(0, 1.2, -110) },
+    { p: V(0, 2.7, -176), l: V(1.2, 3.5, -110) }, // low, looking back across the field to the trees (no more crane shot down at the dirt)
   ];
   const curP = new T.CatmullRomCurve3(CAM.map((c) => c.p), false, 'centripetal');
   const curL = new T.CatmullRomCurve3(CAM.map((c) => c.l), false, 'centripetal');
