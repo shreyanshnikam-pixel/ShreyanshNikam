@@ -55,7 +55,9 @@
   const rimL = new T.DirectionalLight(0xa9cbe3, 0.55);
   rimL.position.set(16, 10, -18);
   S.add(rimL);
-  const RL = window.REAL ? REAL.setup(R, S, C, { hdr: 'assets/textures/misty_dawn_2k.hdr', focus: 12, fogDensity: 0.017, turn: 0.5 }) : null;
+  const RL = window.REAL ? REAL.setup(R, S, C, { hdr: 'assets/textures/misty_dawn_2k.hdr', focus: 12, fogDensity: 0.017, turn: 0.5, cropK: 1, crops: [
+    { url: 'assets/textures/misty_dawn_main.webp', half: 'assets/textures/misty_dawn_main_half.webp', u0: 0.09442138671875, v0: 0.449951171875, u1: 0.4000244140625, v1: 0.6444091796875 },
+    { url: 'assets/textures/misty_dawn_outro.webp', half: 'assets/textures/misty_dawn_outro_half.webp', u0: 0.6278076171875, v0: 0.449951171875, u1: 0.8721923828125, v1: 0.6444091796875 }] }) : null;
 
   // Calm frosted studio sky dome (pure Snow #F4F7FA -> Frost #E7EEF4 -> subtle cool Glacier zenith)
   const sky = new T.Mesh(new T.SphereGeometry(420, 32, 16), new T.ShaderMaterial({

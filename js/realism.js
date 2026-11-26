@@ -15,6 +15,32 @@
     S.fog = new T.FogExp2(fogCol, o.fogDensity);
     let groundMesh = null;
     const uBg = { value: null }, uBgOn = { value: 0 };
+    // Sharp backdrop: slices cut from the 16K original where the camera looks (o.crops), the 2K photo everywhere else.
+    // Slices store y = x / (x + k) at gamma 1/2.2, so the exact linear HDR value comes back out in the shader.
+    const crops = (o.crops || []).slice(0, 2), lowRes = Math.min(innerWidth, 2400) * Math.min(devicePixelRatio || 1, 2) < 1700;
+    const bgU = { tBgLo: uBg, uBgOn, uK: { value: o.cropK || 1 }, tCa: { value: null }, tCb: { value: null }, uRa: { value: new T.Vector4(0, 0, 0, 0) }, uRb: { value: new T.Vector4(0, 0, 0, 0) }, uOnA: { value: 0 }, uOnB: { value: 0 } };
+    const cropLoads = crops.map((c, i) => new Promise((done) => {
+      new T.TextureLoader().load(lowRes && c.half ? c.half : c.url, (tx) => {
+        tx.anisotropy = R.capabilities.getMaxAnisotropy ? R.capabilities.getMaxAnisotropy() : 8; tx.minFilter = T.LinearMipmapLinearFilter; tx.generateMipmaps = true;
+        const k = i ? 'b' : 'a'; bgU['tC' + k].value = tx; bgU['uR' + k].value.set(c.u0, c.v0, c.u1, c.v1); bgU['uOn' + k.toUpperCase()].value = 1; done();
+      }, undefined, () => done());
+    }));
+    const BG_GLSL = [
+      'uniform sampler2D tBgLo, tCa, tCb; uniform vec4 uRa, uRb; uniform float uOnA, uOnB, uK, uBgOn;',
+      'vec3 bgDec(vec3 s){ vec3 y = min(pow(s, vec3(2.2)), vec3(0.9995)); return uK * y / (1.0 - y); }',
+      'float bgW(vec2 q){ return smoothstep(0.0, 0.025, q.x) * smoothstep(0.0, 0.025, 1.0 - q.x) * smoothstep(0.0, 0.05, q.y) * smoothstep(0.0, 0.05, 1.0 - q.y); }',
+      'vec3 bgSample(vec3 d){ d = normalize(d); vec2 uv = vec2(atan(d.z, d.x) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5);',
+      '  vec3 c = texture2D(tBgLo, uv).rgb;',
+      '  vec2 qa = (uv - uRa.xy) / max(uRa.zw - uRa.xy, vec2(1e-5)); vec3 ca = bgDec(texture2D(tCa, clamp(qa, 0.0, 1.0)).rgb); c = mix(c, ca, bgW(qa) * uOnA);',
+      '  vec2 qb = (uv - uRb.xy) / max(uRb.zw - uRb.xy, vec2(1e-5)); vec3 cb = bgDec(texture2D(tCb, clamp(qb, 0.0, 1.0)).rgb); c = mix(c, cb, bgW(qb) * uOnB);',
+      '  return c; }'].join('\n');
+    let dome = null;
+    if (crops.length) {
+      dome = new T.Mesh(new T.SphereGeometry(420, 48, 24), new T.ShaderMaterial({ uniforms: bgU, side: T.BackSide, depthWrite: false, fog: false,
+        vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: BG_GLSL + '\nvarying vec3 vDir; void main(){ gl_FragColor = vec4(bgSample(vDir), 1.0); }' }));
+      dome.renderOrder = -1000; dome.frustumCulled = false; dome.visible = false; S.add(dome);
+    }
     const ready = new Promise((res) => {
       new T.RGBELoader().load(o.hdr, (tx) => {
         tx.mapping = T.EquirectangularReflectionMapping;
@@ -24,6 +50,7 @@
           tx.image.data = out; tx.needsUpdate = true; }
         S.background = tx; S.environment = pm.fromEquirectangular(tx).texture;
         uBg.value = tx; uBgOn.value = 1;
+        if (dome) { dome.visible = true; S.background = null; }
         // match the mist to the photo's horizon so the ground melts into it
         try {
           const W = tx.image.width, H = tx.image.height, d = tx.image.data, ch = d.length / (W * H), f = tx.type === T.HalfFloatType ? T.DataUtils.fromHalfFloat : (v) => v;
@@ -31,7 +58,7 @@
           for (let y = Math.floor(H * 0.47); y < Math.floor(H * 0.5); y++) for (let x = 0; x < W; x += 4) { const i = (y * W + x) * ch; r += f(d[i]); g += f(d[i + 1]); b += f(d[i + 2]); n++; }
           S.fog.color.setRGB(r / n, g / n, b / n);
         } catch (e) {}
-        res();
+        Promise.all(cropLoads).then(res);
       }, undefined, () => res());
     });
     // photo-scanned frosted grass ground (Poly Haven "withered_grass", CC0)
@@ -42,8 +69,8 @@
       // break up tiling with large-scale tone variation and a frosty sheen in the low spots
       m.onBeforeCompile = (sh) => {
         // far away, the ground dissolves into the photograph behind it, so there is no seam at the horizon
-        sh.uniforms.tBgPhoto = uBg; sh.uniforms.uBgOn = uBgOn;
-        sh.fragmentShader = 'uniform sampler2D tBgPhoto; uniform float uBgOn;\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n { vec3 dv = normalize(vWG - cameraPosition); vec2 euv = vec2(atan(dv.z, dv.x) * 0.15915494 + 0.5, asin(clamp(dv.y, -1.0, 1.0)) * 0.31830989 + 0.5); float dd = length(vWG.xz - cameraPosition.xz); float w = smoothstep(45.0, 220.0, dd) * uBgOn; gl_FragColor.rgb = mix(gl_FragColor.rgb, texture2D(tBgPhoto, euv).rgb, w); }');
+        Object.assign(sh.uniforms, bgU);
+        sh.fragmentShader = BG_GLSL + '\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n { float dd = length(vWG.xz - cameraPosition.xz); float w = smoothstep(45.0, 220.0, dd) * uBgOn; gl_FragColor.rgb = mix(gl_FragColor.rgb, bgSample(vWG - cameraPosition), w); }');
         sh.vertexShader = 'varying vec3 vWG;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWG = (modelMatrix * vec4(transformed, 1.0)).xyz;');
         sh.fragmentShader = 'varying vec3 vWG;\nfloat gh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); } float gn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gh(i),gh(i+vec2(1,0)),f.x),mix(gh(i+vec2(0,1)),gh(i+vec2(1,1)),f.x),f.y); }\n' +
           sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n { vec2 q = vWG.xz; float v = gn(q * 0.03) * 0.6 + gn(q * 0.11) * 0.4; diffuseColor.rgb *= 0.78 + 0.42 * v; float frost = smoothstep(0.55, 0.85, gn(q * 0.07 + 3.0)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.85, 0.88), frost * 0.35); }');
@@ -89,7 +116,7 @@
       ready, ground: groundMesh, composer: comp, grade: grade.uniforms, bokeh,
       setFocus: (d) => { bokeh.uniforms.focus.value += (d - bokeh.uniforms.focus.value) * 0.12; },
       resize,
-      render: (dt) => { t += dt || 0.016; grade.uniforms.uT.value = t; if (comp._w !== R.domElement.width) { comp._w = R.domElement.width; resize(); } comp.render(dt || 0.016); },
+      render: (dt) => { if (dome) dome.position.copy(C.position); t += dt || 0.016; grade.uniforms.uT.value = t; if (comp._w !== R.domElement.width) { comp._w = R.domElement.width; resize(); } comp.render(dt || 0.016); },
     };
   }
   window.REAL = { setup };
