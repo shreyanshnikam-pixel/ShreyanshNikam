@@ -1,0 +1,8 @@
+legacy
+blender
+docs
+tools
+*.py
+*.bat
+*.md
+.git
