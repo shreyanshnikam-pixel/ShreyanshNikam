@@ -3,8 +3,8 @@
 the creator's permission, into seamless looping clips for the Home page.
 
     python3 tools/cut_rockies.py /path/to/the_rockies.mp4          (the original file)
-    python3 tools/cut_rockies.py /path/to/folder_of_recordings     (rockies_<name>_from<t0>_x3.mp4, recorded in Chrome
-                                                                    at one-third speed in 4K; t0 = video time at frame 0)
+    python3 tools/cut_rockies.py /path/to/folder_of_recordings     (rockies_<name>_from<t0>_x<N>.mp4, recorded in Chrome
+                                                                    at 1/N speed in 4K; t0 = video time at frame 0)
 
 Writes assets/rockies/<name>_1080.mp4, <name>_720.mp4 and <name>.webp (poster) for every moment below.
 Each loop crossfades its last second into its first, so it repeats without a jump. No audio."""
@@ -51,9 +51,10 @@ def main():
     for sec, name, s, e, alt in MOMENTS:
         f, slow = src, 1.0
         if os.path.isdir(src):  # one Chrome recording per moment: times become relative to its first frame
-            hits = glob.glob(os.path.join(src, f'rockies_{name}_from*_x3.mp4'))
+            hits = glob.glob(os.path.join(src, f'rockies_{name}_from*_x[0-9]*.mp4'))
             if not hits: print('missing recording for', name); continue
-            f = sorted(hits)[-1]; t0 = float(re.search(r'_from([0-9.]+)_x3', f).group(1)); s, e, slow = s - t0, e - t0, 3.0
+            f = sorted(hits, key=lambda h: int(re.search(r'_x(\d+)\.mp4$', h).group(1)))[-1]; m = re.search(r'_from([0-9.]+)_x(\d+)\.mp4$', f)
+            t0, slow = float(m.group(1)), float(m.group(2)); s, e = s - t0, e - t0
         for height, crf in [(2160, 20), (1080, 22), (720, 25)]:
             cut(f, name, s, e, height, crf, slow)
         run(['ffmpeg', '-y', '-ss', str((s + XF + 0.2) * slow), '-i', f, '-frames:v', '1', '-vf', 'scale=-2:720:flags=lanczos', os.path.join(OUT, f'{name}.webp')])

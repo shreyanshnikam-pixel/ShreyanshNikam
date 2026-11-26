@@ -1,1 +1,36 @@
-{"clips": []}
+{
+ "credit": "The Rockies | Cinematic Drone 4K Video by stoked tour (Samson Tan), used with permission",
+ "source": "https://www.youtube.com/watch?v=zzMo2dy7mNY",
+ "clips": [
+  {
+   "section": 1,
+   "name": "lake-rays",
+   "alt": "A turquoise lake under shafts of sunlight"
+  },
+  {
+   "section": 2,
+   "name": "peaks-cloud",
+   "alt": "Snow peaks with cloud on their shoulders"
+  },
+  {
+   "section": 3,
+   "name": "mirror-lake",
+   "alt": "An alpine lake holding the sky like a mirror"
+  },
+  {
+   "section": 4,
+   "name": "tarn",
+   "alt": "A snow-dusted tarn below a ridge"
+  },
+  {
+   "section": 5,
+   "name": "alpenglow",
+   "alt": "Alpenglow on a range at last light"
+  },
+  {
+   "section": 6,
+   "name": "sunset-ridge",
+   "alt": "A rock ridge against a sunset over snow peaks"
+  }
+ ]
+}
