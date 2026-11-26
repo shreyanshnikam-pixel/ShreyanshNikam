@@ -1,4 +1,5 @@
-/* Echo page: from the icy surface down a crevasse and an ice cave into the Hollow, a mine you can only see by sound.
+/* Echo page: as in the game, night at the lip of an old mine shaft, Mara's rope down into the dark, the rope snaps,
+   the lantern breaks, and the Hollow can only be seen by sound.
    One fixed canvas behind the page: the film while the #hollow track scrolls, then the mine drifting on behind the
    sections after it. Classic script; needs THREE (r147 bundle), FK (kit.js), SITE (core.js), gsap.
    Test hooks: window.echo.setProgress(p), .ping(), .triggerScare(), .scareFrame(f), .setAfter(p). */
@@ -41,7 +42,7 @@
   const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping; R.setClearColor(0x000000, 1);
   const S = new T.Scene(), C = new T.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 420);
-  const SKY = new T.Color('#DCE6EE'), BLACK = new T.Color(0), DEEPICE = new T.Color('#1B3346');
+  const SKY = new T.Color('#0C1622'), BLACK = new T.Color(0), DEEPICE = new T.Color('#0A121A');
   S.background = SKY.clone(); S.fog = new T.FogExp2(SKY.clone(), 0.012);
   const P = FK.composer(R, S, C, [0.42, 0.45, 0.92]), G = P.grade.uniforms;
   G.uGrain.value = 0.02; G.uCA.value = 0.0009;
@@ -183,17 +184,33 @@
     const tex = (k, srgb, rx, ry) => FK.tex(D.tex[k], srgb, [rx || 1, ry || rx || 1]);
     const rnd = FK.rng(11);
     // ---- surface: snowfield, mountains, sun ----
-    const sun = world.sun = new T.DirectionalLight(0xfff6ee, 2.3); sun.position.set(-30, 60, 20); S.add(sun);
-    const hemi = world.hemi = new T.HemisphereLight(0xf2f7fc, 0xb8c9d8, 0.9); S.add(hemi);
-    const snowMat = new T.MeshStandardMaterial({ map: ltex('assets/textures/snow_diff.jpg', true, 1), normalMap: ltex('assets/textures/snow_nor_gl.jpg', false, 1), roughnessMap: ltex('assets/textures/snow_rough.jpg', false, 1), normalScale: new T.Vector2(0.8, 0.8), envMapIntensity: 1 });
+    const sun = world.sun = new T.DirectionalLight(0xa9bddc, 2.3); sun.position.set(-40, 55, -30); S.add(sun); // moonlight
+    const hemi = world.hemi = new T.HemisphereLight(0x22344c, 0x07090c, 0.9); S.add(hemi);
+    const snowMat = new T.MeshStandardMaterial({ map: ltex('assets/textures/withered_grass_diff.jpg', true, 1), normalMap: ltex('assets/textures/withered_grass_nor_gl.jpg', false, 1), roughnessMap: ltex('assets/textures/withered_grass_rough.jpg', false, 1), color: 0x4a463e, normalScale: new T.Vector2(1.1, 1.1), envMapIntensity: 0.06 }); // a dead-grass field at night, not snow
     world.snowMat = snowMat;
-    // ---- ice: crevasse, cave and chute in one swept tube ----
+    // ---- the shaft: rock all the way down (the same swept tube that used to be ice) ----
     const iceGeo = tubeGeo(0, S_ROCK1, mobile ? 150 : 240, mobile ? 48 : 72, { cutTop: true });
     const iceNor = tex('rock_face_04_nor', false, 1);
-    const iceM = world.iceM = sonar(new T.MeshPhysicalMaterial({ color: 0x7fa6c2, roughness: 0.22, metalness: 0, normalMap: iceNor, normalScale: new T.Vector2(0.9, 0.9), clearcoat: 1, clearcoatRoughness: 0.06, ior: 1.31, side: T.DoubleSide, specularIntensity: 1 }), 'ice', { diss: 0, ice: true, env: 1.25 });
-    const iceFloorM = world.iceFloorM = sonar(new T.MeshStandardMaterial({ map: ltex('assets/textures/snow_diff.jpg', true, 1), normalMap: ltex('assets/textures/snow_nor_gl.jpg', false, 1), color: 0xd4e3ee, roughness: 0.85, side: T.DoubleSide }), 'icefloor', { diss: 0, ice: true, env: 1 });
+    const iceM = world.iceM = sonar(new T.MeshStandardMaterial({ map: tex('rock_face_04_diff', true, 1), normalMap: iceNor, aoMap: tex('dark_rock_02_ao', false, 1), normalScale: new T.Vector2(1.5, 1.5), roughness: 0.92, color: 0x8a847c, side: T.DoubleSide }), 'shaft', { diss: 0, env: 0 });
+    const iceFloorM = world.iceFloorM = sonar(new T.MeshStandardMaterial({ map: tex('brown_mud_03_diff', true), normalMap: tex('brown_mud_03_nor'), roughness: 0.7, color: 0x6e6258, side: T.DoubleSide }), 'shaftfloor', { diss: 0, env: 0 });
     const iceTube = world.iceTube = new T.Mesh(iceGeo, [iceM, iceFloorM]); S.add(iceTube);
-    // snowfield with the crevasse cut out (a little overhang, like a cornice)
+    // Mara's rope: tied to a timber stake at the lip, over the edge and down into the dark
+    { const ropeM = sonar(new T.MeshStandardMaterial({ color: 0x8c7556, roughness: 0.95 }), 'rope', { env: 0 });
+      const rc = new T.CatmullRomCurve3([V(1.25, 0.42, 7.4), V(0.75, 0.16, 5.6), V(0.42, 0.02, 4.15), V(0.34, -2.5, 3.6), V(0.3, -8, 2.7), V(0.26, -13.5, 2.1), V(0.24, -15.2, 2.0)]);
+      S.add(new T.Mesh(new T.TubeGeometry(rc, 160, 0.022, 6, false), ropeM));
+      const stakeM = sonar(new T.MeshStandardMaterial({ map: tex('weathered_planks_diff', true, 0.3, 1), roughness: 0.9, color: 0x6a5646 }), 'stake', { env: 0 });
+      const stake = new T.Mesh(new T.CylinderGeometry(0.06, 0.08, 1.1, 8), stakeM); stake.position.set(1.3, 0.25, 7.55); stake.rotation.z = -0.18; S.add(stake);
+      const knot = new T.Mesh(new T.TorusGeometry(0.085, 0.03, 6, 14), ropeM); knot.position.set(1.27, 0.45, 7.5); knot.rotation.x = Math.PI / 2; S.add(knot); }
+    // a clear night sky over the field
+    { const N = 1400, sp = new Float32Array(N * 3), sr = new Float32Array(N), r2 = FK.rng(5);
+      for (let i = 0; i < N; i++) { const a = r2() * Math.PI * 2, e = Math.asin(0.06 + r2() * 0.94); sp.set([Math.cos(a) * Math.cos(e) * 300, Math.sin(e) * 300, Math.sin(a) * Math.cos(e) * 300], i * 3); sr[i] = r2(); }
+      const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3)); sg.setAttribute('aR', new T.BufferAttribute(sr, 1));
+      world.starsU = { uA: { value: 1 } };
+      world.stars = new T.Points(sg, new T.ShaderMaterial({ uniforms: world.starsU, transparent: true, depthWrite: false, fog: false,
+        vertexShader: 'attribute float aR; varying float vR; void main(){ vR = aR; gl_PointSize = 1.0 + aR * aR * 2.2; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform float uA; varying float vR; void main(){ float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(vec3(0.78, 0.86, 1.0), uA * (0.25 + vR * 0.75) * smoothstep(0.5, 0.1, d)); }' }));
+      world.stars.frustumCulled = false; S.add(world.stars); }
+    // the field with the shaft mouth cut out (a little overhang at the lip)
     const cuts = iceGeo.userData.cuts, shape = new T.Shape([new T.Vector2(-260, -200), new T.Vector2(260, -200), new T.Vector2(260, 220), new T.Vector2(-260, 220)]);
     if (cuts.length > 2) {
       const pts = [], ov = 0.22;
@@ -204,7 +221,7 @@
     const gg = new T.ShapeGeometry(shape, 2); gg.rotateX(-Math.PI / 2);
     { const p = gg.attributes.position, u = gg.attributes.uv; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z * 0.6); p.setY(i, d > 30 ? (FK.fbm(x * 0.02, z * 0.02, 1, 3) - 0.4) * Math.min(1, (d - 30) / 60) * 14 : 0); u.setXY(i, x / 5, z / 5); } gg.computeVertexNormals(); }
     const ground = new T.Mesh(gg, snowMat); S.add(ground); world.ground = ground;
-    const mtnM = new T.MeshStandardMaterial({ color: 0xeef3f7, roughness: 0.95, flatShading: true, envMapIntensity: 0.8 });
+    const mtnM = new T.MeshStandardMaterial({ color: 0x141d26, roughness: 1, flatShading: true, envMapIntensity: 0.05 }); // dark wooded hills on the skyline
     for (let i = 0; i < 12; i++) {
       const g = new T.IcosahedronGeometry(1, 4), p = g.attributes.position;
       for (let k = 0; k < p.count; k++) { const v = V(p.getX(k), p.getY(k), p.getZ(k)); v.multiplyScalar(0.7 + FK.fbm(v.x * 1.8 + i, v.y * 1.8, v.z * 1.8, 5) * 0.75); p.setXYZ(k, v.x, Math.max(-0.2, v.y), v.z); }
@@ -604,15 +621,15 @@
 
     // ---- light: the surface fades out as you descend ----
     const Lf = mode === 'film' ? 1 - ss(0.07, 0.25, p) * 0.75 - ss(0.2, 0.255, p) * 0.25 : 0;
-    world.sun.intensity = 2.3 * Math.pow(Lf, 1.6); world.hemi.intensity = 0.9 * Lf;
-    world.iceM.envMapIntensity = 0.9 * Lf + 0.05; world.iceFloorM.envMapIntensity = Lf; PU.uGlow.value = 0.12 + 1.1 * Lf; PU.uDeep.value = lerp(0.03, 0.3, Lf);
+    world.sun.intensity = 0.75 * Math.pow(Lf, 1.6); world.hemi.intensity = 0.7 * Lf;
+    world.iceM.envMapIntensity = 0.08 * Lf; world.iceFloorM.envMapIntensity = 0.05 * Lf; PU.uGlow.value = 0.12 + 1.1 * Lf; PU.uDeep.value = lerp(0.03, 0.3, Lf);
     S.background.copy(BLACK).lerp(SKY, Math.pow(Lf, 2.2)); S.fog.color.copy(BLACK).lerp(DEEPICE, ss(0.05, 0.5, Lf)).lerp(SKY, ss(0.55, 1, Lf));
     S.fog.density = lerp(0.034, 0.012, Lf);
     world.iceTube.visible = mode === 'film' && camS < S_ROCK1 + 6; world.ground.visible = world.iceTube.visible;
     ovl.classList.toggle('active', mode === 'film' && p > 0.015);
     ovl.classList.toggle('lit', mode === 'film' && p < 0.075);
     if (P.bloom) { P.bloom.threshold = lerp(0.55, 1.4, Lf); P.bloom.strength = lerp(0.75, 0.35, Lf); }
-    world.DU.uSnow.value = mode === 'film' ? ss(0.4, 0.8, Lf) : 0;
+    world.DU.uSnow.value = 0; if (world.stars) { world.stars.visible = mode === 'film'; world.starsU.uA.value = Math.pow(Lf, 1.5); }
 
     // ---- story: pings, the hold, the scare ----
     const inMine = mode === 'film' && p > 0.3 && p < 0.68;

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Echo: a horror game where sound is the only way to see · Shreyansh Nikam</title>
-<meta name="description" content="Echo, 1st prize, best overall at Hack Club Haven Princeton (November 14 to 15, 2026). Descend from the ice into the Hollow, a dark mine you can only see by sound.">
+<meta name="description" content="Echo, 1st prize, best overall at Hack Club Haven Princeton (November 14 to 15, 2026). Climb down an old mine shaft into the Hollow, a dark mine you can only see by sound.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Echo: a horror game where sound is the only way to see · Shreyansh Nikam">
-<meta property="og:description" content="1st prize, best overall at Hack Club Haven Princeton 2026. Descend from the ice into the Hollow, a dark mine you can only see by sound.">
+<meta property="og:description" content="1st prize, best overall at Hack Club Haven Princeton 2026. Climb down an old mine shaft into the Hollow, a dark mine you can only see by sound.">
 <meta property="og:image" content="https://shreyansh-nikam.pages.dev/assets/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -23,16 +23,16 @@
 .st{font-family:'Big Shoulders Stencil','Big Shoulders',Impact,sans-serif;font-weight:900;letter-spacing:.005em;text-transform:uppercase}
 .tw{font-family:'Special Elite','Courier New',monospace}
 /* the 3D backdrop: one fixed canvas behind the whole page */
-#echo-canvas{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;z-index:0;display:block;background:var(--snow)}
+#echo-canvas{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;z-index:0;display:block;background:#0C1622}
 .rm #echo-canvas,.nogl #echo-canvas{display:none}
 html:not(.rm):not(.nogl) body.echo{background:var(--night)}
-/* gate: title and the warning, over the icy opening */
-.gate{position:relative;z-index:3;min-height:100vh;min-height:100svh;margin-bottom:-100vh;margin-bottom:-100svh;display:flex;flex-direction:column;justify-content:center;padding:110px var(--pad) 90px;pointer-events:none;background:linear-gradient(90deg,rgba(244,247,250,.9) 0%,rgba(244,247,250,.62) 38%,rgba(244,247,250,0) 70%)}
+/* gate: title and the warning, over the night field at the shaft */
+.gate{position:relative;z-index:3;min-height:100vh;min-height:100svh;margin-bottom:-100vh;margin-bottom:-100svh;display:flex;flex-direction:column;justify-content:center;padding:110px var(--pad) 90px;pointer-events:none;background:linear-gradient(90deg,rgba(5,9,14,.82) 0%,rgba(5,9,14,.5) 38%,rgba(5,9,14,0) 70%)}
 .gate>*{pointer-events:auto}
 .rm .gate,.nogl .gate{margin-bottom:0;background:none}
-.gate .kicker{color:var(--ink);opacity:.82}
-.gate h1{font-size:clamp(110px,19vw,320px);line-height:.78;margin:6px 0 0;color:var(--ink)}
-.gate .sub{font-size:clamp(19px,1.7vw,24px);line-height:1.45;max-width:30ch;margin:22px 0 0;color:var(--ink)}
+.gate .kicker{color:#E7EEF4;opacity:.82}
+.gate h1{font-size:clamp(110px,19vw,320px);line-height:.78;margin:6px 0 0;color:#F4F7FA}
+.gate .sub{font-size:clamp(19px,1.7vw,24px);line-height:1.45;max-width:30ch;margin:22px 0 0;color:#E7EEF4}
 .warnbox{margin-top:30px;max-width:560px;padding:20px 22px 22px;border-radius:18px}
 .warnbox .hd{display:flex;align-items:center;gap:10px;color:var(--ink);font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
 .warnbox .hd svg{width:18px;height:18px;flex:none}
@@ -52,14 +52,14 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .ovl2 .sonar-hud span{display:block;white-space:nowrap}
 .ovl2 .sonar-hud b{font-weight:600;color:#A9CBE3}
 .ovl2 .sonar-hud .sh-tip{color:rgba(202,215,226,.72);font-size:10px;margin-top:2px}
-.ovl2.lit{color:var(--ink)}
+.ovl2.lit{color:#E7EEF4}
 .ovl2 .progress{top:auto;bottom:0;height:2px;opacity:0;transition:opacity .4s}.ovl2.active .progress{opacity:1}
-.ovl2.lit .progress{background:rgba(15,27,38,.12)}.ovl2.lit .progress i{background:var(--ink)}
+.ovl2.lit .progress{background:rgba(231,238,244,.18)}.ovl2.lit .progress i{background:#E7EEF4}
 .cap{position:absolute;left:50%;bottom:20%;width:min(92vw,900px);transform:translate(-50%,16px);text-align:center;opacity:0;transition:opacity 1s var(--ease),transform 1.2s var(--ease)}
 .cap.on{opacity:1;transform:translate(-50%,0)}
 .cap .a{display:block;font-size:clamp(26px,3.3vw,50px);line-height:1.12;color:#F4F7FA;text-shadow:0 0 28px rgba(0,0,0,.95),0 2px 6px rgba(0,0,0,.8)}
 .cap .b{display:block;margin:14px auto 0;max-width:36em;font-size:clamp(15px,1.35vw,19px);line-height:1.5;color:#CAD7E2;text-shadow:0 1px 10px rgba(0,0,0,.95)}
-.ovl2.lit .cap .a{color:var(--ink);text-shadow:0 0 30px rgba(255,255,255,.9)}.ovl2.lit .cap .b{color:#3B4C5C;text-shadow:0 0 18px rgba(255,255,255,.9)}
+.ovl2.lit .cap .a{color:#F4F7FA;text-shadow:0 0 30px rgba(0,0,0,.8)}.ovl2.lit .cap .b{color:#C9D6E2;text-shadow:0 0 18px rgba(0,0,0,.8)}
 .cap.caught{bottom:38%}.cap.caught .a{font-family:'Big Shoulders Stencil',Impact,sans-serif;font-weight:900;font-size:clamp(70px,13vw,220px);line-height:.85;color:var(--red);text-shadow:0 0 60px rgba(255,40,30,.6)}
 .cap.end .a{font-family:'Big Shoulders Stencil',Impact,sans-serif;font-weight:900;font-size:clamp(80px,14vw,240px);line-height:.8;letter-spacing:.01em}
 .ping{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);width:84px;height:84px;border-radius:50%;border:1.5px solid rgba(234,242,248,.75);background:rgba(5,8,11,.45);color:#fff;font:600 13px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;cursor:pointer;pointer-events:auto;opacity:0;visibility:hidden;transition:opacity .6s,visibility .6s,background .25s,transform .2s var(--ease);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
@@ -71,7 +71,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .ovl2 .hint{position:absolute;left:50%;bottom:142px;transform:translateX(-50%);white-space:nowrap;opacity:0;transition:opacity .6s}.ovl2 .hint.on{opacity:1}
 .ovl2 .warnline{position:absolute;left:var(--pad);bottom:52px;max-width:240px;color:rgba(234,242,248,.82);opacity:0;transition:opacity .5s}
 .ovl2.active .warnline{opacity:1}
-.ovl2.lit .warnline{color:var(--ink)}
+.ovl2.lit .warnline{color:#E7EEF4}
 .ovl2 .loading{position:absolute;inset:0;display:grid;place-items:center;font:500 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink);transition:opacity .6s}
 .ovl2 .loading.off{opacity:0}
 @media (max-width:760px){.ovl2 .warnline{display:none}.ovl2 .chapters{top:76px;gap:10px}.ovl2 .chapters span{display:none}.ovl2 .chapters span.on{display:inline}.ovl2 .sonar-hud{top:72px;padding:7px 10px;font-size:10px;line-height:1.5}.ovl2 .sonar-hud .sh-tip{display:none}.ping{width:76px;height:76px;bottom:40px}.cap{bottom:24%}.ovl2 .hint{bottom:128px}.film{height:650vh}}
@@ -128,7 +128,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 .stills h2{color:var(--ink)}
 .rm .after .dglass,.nogl .after .dglass{background:#0A1016}
 @media (max-width:900px){.two,.loopwrap{grid-template-columns:1fr}.moves{grid-template-columns:repeat(2,minmax(0,1fr))}.dsec.right{justify-content:flex-start}}
-@media (max-width:520px){.moves{grid-template-columns:1fr}.loop{width:min(264px,78vw);margin-inline:auto}.loop li{width:88px;margin:-22px 0 0 -44px;padding:6px 4px}.loop li b{font-size:15px}.loop li span{font-size:9.5px}.commits{gap:4px}.gate{background:linear-gradient(180deg,rgba(244,247,250,.92) 0%,rgba(244,247,250,.7) 60%,rgba(244,247,250,.2) 100%)}}
+@media (max-width:520px){.moves{grid-template-columns:1fr}.loop{width:min(264px,78vw);margin-inline:auto}.loop li{width:88px;margin:-22px 0 0 -44px;padding:6px 4px}.loop li b{font-size:15px}.loop li span{font-size:9.5px}.commits{gap:4px}.gate{background:linear-gradient(180deg,rgba(5,9,14,.9) 0%,rgba(5,9,14,.65) 60%,rgba(5,9,14,.2) 100%)}}
 </style>
 </head>
 <body class="echo" data-base="light" data-wind="off">
@@ -155,10 +155,10 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
 <div class="hudbar br hud" aria-hidden="true"><span data-hud="pct">000%</span></div>
 <div class="hudbar lv hud" aria-hidden="true">40.7876° N · 74.3274° W · Livingston, NJ</div>
 
-<canvas id="echo-canvas" role="img" aria-label="A real-time 3D scene. It starts on a snowfield at a crevasse, descends through a glowing ice cave and slides down into a pitch-dark mine. Each sound ping sends a ring of pale blue light across the rock walls, rotting timber, rusted rails, a tipped mine cart, hanging chains and puddles. A tall eyeless creature, the Listener, is closer each time you ping, and at the end it lunges at the camera."></canvas>
+<canvas id="echo-canvas" role="img" aria-label="A real-time 3D scene. It starts at night in a field at the mouth of an old mine shaft, follows a rope down into the dark until it snaps, and lands in a pitch-dark mine. Each sound ping sends a ring of pale blue light across the rock walls, rotting timber, rusted rails, a tipped mine cart, hanging chains and puddles. A tall eyeless creature, the Listener, is closer each time you ping, and at the end it lunges at the camera."></canvas>
 
 <main id="main">
-  <section class="gate" data-section="Surface" data-tone="light" aria-labelledby="echo-title">
+  <section class="gate" data-section="Surface" data-tone="dark" aria-labelledby="echo-title">
     <p class="hud kicker" data-intro-fade>Echo · Hack Club Haven Princeton · November 14 to 15, 2026</p>
     <h1 class="st" id="echo-title" data-intro>Echo</h1>
     <p class="sub" data-intro-fade>A horror game where sound is the only way to see. Scroll to go down.</p>
@@ -169,7 +169,7 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
     </div>
   </section>
 
-  <section class="film" id="hollow" data-section="The Hollow" aria-label="Echo, a scroll-driven walk from the ice into the Hollow. Scroll to move forward.">
+  <section class="film" id="hollow" data-section="The Hollow" aria-label="Echo, a scroll-driven climb down into the Hollow. Scroll to move forward.">
     <div aria-hidden="true" data-tone="dark" style="position:absolute;left:0;right:0;top:7%;bottom:0;pointer-events:none"></div>
     <div class="ovl2 lit">
       <canvas class="frames" id="echo-frames" aria-hidden="true"></canvas>
@@ -179,9 +179,9 @@ html:not(.rm):not(.nogl) body.echo{background:var(--night)}
         <span>ECHO DELAY <b data-sonar-delay>--.- ms</b></span>
         <span class="sh-tip" data-sonar-tip>343 m/s · Click, tap or press P</span>
       </div>
-      <div class="cap" data-a=".065" data-b=".125"><span class="a tw">The theme was “Bounce Back.”</span><span class="b tw">An echo is sound bouncing back. Below the snow, the ice opens.</span></div>
-      <div class="cap" data-a=".155" data-b=".205"><span class="a tw">The crevasse closes into an ice cave.</span><span class="b tw">Somewhere below it is the Hollow, an old mine.</span></div>
-      <div class="cap" data-a=".262" data-b=".31"><span class="a tw">You fell. Your lantern broke.</span><span class="b tw">The only way to see is to make noise.</span></div>
+      <div class="cap" data-a=".065" data-b=".125"><span class="a tw">The theme was “Bounce Back.”</span><span class="b tw">An echo is sound bouncing back. Mara went down this shaft first. She said the cave sings back.</span></div>
+      <div class="cap" data-a=".155" data-b=".205"><span class="a tw">Forty metres of rope, and every knot trusted.</span><span class="b tw">Below is the Hollow, an old mine. The rope groans.</span></div>
+      <div class="cap" data-a=".262" data-b=".31"><span class="a tw">The rope snapped. The lantern’s gone.</span><span class="b tw">The only way to see is to make noise.</span></div>
       <div class="cap" data-a=".325" data-b=".395"><span class="a tw">Every ping lights the walls.</span><span class="b tw">Press Ping, or wait for the next one. The chalk marks show where someone has been.</span></div>
       <div class="cap" data-a=".43" data-b=".505"><span class="a tw">Every ping also tells them where you are.</span><span class="b tw">Listen: far walls answer later, and quieter.</span></div>
       <div class="cap" data-a=".55" data-b=".655"><span class="a tw">Something is listening.</span><span class="b tw">The Listener. Tall, blind, and hunting by sound. Each ping shows it closer.</span></div>
