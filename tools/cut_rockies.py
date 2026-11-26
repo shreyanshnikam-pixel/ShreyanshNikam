@@ -14,9 +14,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.environ.get('ROCKIES_OUT') or os.path.join(ROOT, 'assets', 'rockies')
 # section index on Home -> moment (start, end in seconds of the original video), picked frame by frame
 MOMENTS = [
-    (1, 'lake-rays', 12.3, 20.3, 'A turquoise lake under shafts of sunlight'),
-    (2, 'peaks-cloud', 93.2, 98.8, 'Snow peaks with cloud on their shoulders'),
-    (3, 'mirror-lake', 184.8, 191.6, 'An alpine lake holding the sky like a mirror'),
+    (0, 'lake-rays', 12.3, 20.3, 'A turquoise lake under shafts of sunlight'),
+    (1, 'peaks-cloud', 93.2, 98.8, 'Snow peaks with cloud on their shoulders'),
+    (2, 'mirror-lake', 184.8, 191.6, 'An alpine lake holding the sky like a mirror'),
+    (3, 'dusk-ridge', 106.0, 111.0, 'A rugged ridge with snow in its gullies at dusk'),
     (4, 'tarn', 173.2, 177.8, 'A snow-dusted tarn below a ridge'),
     (5, 'alpenglow', 179.2, 182.4, 'Alpenglow on a range at last light'),
     (6, 'sunset-ridge', 28.2, 34.8, 'A rock ridge against a sunset over snow peaks'),

@@ -306,8 +306,8 @@
     for (let i = 0; i < N; i++) { const r = secs[i].getBoundingClientRect(); if (mid < r.bottom || i === N - 1) return i + Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height))); }
     return 0;
   };
-  // ease each section so the camera settles while you read and moves between sections
-  const held = (x) => { const i = Math.floor(x), f = x - i; return i + ss(0.18, 0.92, f); };
+  // the flight is the finale: it runs while the drone footage hands over and you scroll through the last section
+  const flight = (x) => ss(N - 2 + 0.56, N - 1 + 0.74, x);
 
   // ---------- frame ----------
   let tS = 0, last = 0, visible = !document.hidden, t0 = performance.now(), rmDrawn = -1, frameN = 0;
@@ -337,7 +337,7 @@
     const target = measure();
     tS = rm ? Math.round(target) : tS + (target - tS) * (1 - Math.exp(-dt * 4.2));
     if (rm) { if (tS === rmDrawn) return; rmDrawn = tS; }
-    const k = Math.max(0, Math.min(N - 1, held(tS))) / Math.max(1, N - 1);
+    const k = rm ? (tS >= N - 1 ? 1 : 0) : flight(tS);
     path.p.getPoint(k, tmpP); path.l.getPoint(k, tmpL);
     mouse.lerp(mt, 1 - Math.exp(-dt * 3));
     const alt = Math.max(2, tmpP.y), sway = rm ? 0 : 1;
