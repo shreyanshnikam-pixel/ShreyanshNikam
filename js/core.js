@@ -1,6 +1,9 @@
 /* Shared site behaviour: smooth scroll, preloader, header, HUD, cursor, reveals, sound. window.SITE */
 (function () {
-  const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // motion: follow the system's reduced-motion setting unless the visitor chose otherwise in the Graphics panel
+  let motionPref = 'system'; try { motionPref = localStorage.getItem('motion') || 'system'; } catch (e) { /* storage blocked */ }
+  const sysRM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rm = motionPref === 'full' ? false : motionPref === 'reduced' ? true : sysRM;
   const touch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
   const root = document.documentElement; root.classList.remove('js-off'); if (rm) root.classList.add('rm');
   const glOk = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
@@ -56,13 +59,14 @@
     wrap.innerHTML = '<button class="sound gfx-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="gfx-menu"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="t">Graphics: ' + names[P.level] + '</span></button>'
       + '<div class="gfx-menu glass" id="gfx-menu" role="radiogroup" aria-label="Graphics quality" hidden>'
       + Object.keys(names).map((k) => '<button type="button" role="radio" aria-checked="' + (k === P.level) + '" data-gfx="' + k + '"><b>' + names[k] + (k === 'auto' ? ' <i>(' + { low: 'low', mid: 'medium', high: 'high' }[P.detected] + ' here)</i>' : '') + '</b><span>' + notes[k] + '</span></button>').join('')
+      + '<div class="gfx-sep" role="presentation"></div><div class="gfx-sub" role="radiogroup" aria-label="Motion">' + [['system', 'Follow system', sysRM ? 'Your device asks for reduced motion' : 'Your device allows motion'], ['full', 'Full motion', 'Video, reveals and the camera flight'], ['reduced', 'Reduced motion', 'Still images, no movement']].map((m) => '<button type="button" role="radio" aria-checked="' + (m[0] === motionPref) + '" data-motion="' + m[0] + '"><b>' + m[1] + '</b><span>' + m[2] + '</span></button>').join('') + '</div>'
       + '<p>The page reloads to apply.</p></div>';
     tools.insertBefore(wrap, tools.firstChild);
     const btn = wrap.querySelector('.gfx-btn'), menu = wrap.querySelector('.gfx-menu');
     const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
     btn.addEventListener('click', (e) => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) (menu.querySelector('[aria-checked=true]') || menu.querySelector('button')).focus(); });
-    menu.addEventListener('click', (e) => { const b = e.target.closest('[data-gfx]'); if (!b) return; if (b.dataset.gfx === P.level) { close(); return; } P.setLevel(b.dataset.gfx); });
-    menu.addEventListener('keydown', (e) => { const items = [...menu.querySelectorAll('[data-gfx]')], i = items.indexOf(document.activeElement); if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); items[(i + 1) % items.length].focus(); } if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); } if (e.key === 'Escape') { close(); btn.focus(); } });
+    menu.addEventListener('click', (e) => { const mb = e.target.closest('[data-motion]'); if (mb) { if (mb.dataset.motion !== motionPref) { try { localStorage.setItem('motion', mb.dataset.motion); } catch (er) { /* storage blocked */ } location.reload(); } else close(); return; } const b = e.target.closest('[data-gfx]'); if (!b) return; if (b.dataset.gfx === P.level) { close(); return; } P.setLevel(b.dataset.gfx); });
+    menu.addEventListener('keydown', (e) => { const items = [...menu.querySelectorAll('[data-gfx],[data-motion]')], i = items.indexOf(document.activeElement); if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); items[(i + 1) % items.length].focus(); } if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); } if (e.key === 'Escape') { close(); btn.focus(); } });
     document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildGfx); else buildGfx();
