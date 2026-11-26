@@ -330,7 +330,7 @@
 
   function frame(now) {
     requestAnimationFrame(frame);
-    if (!visible || !path) { last = now; return; }
+    if (!visible || !path || window.__bgCover) { last = now; return; } // a drone clip fully covers the lake: rest
     if (!rm) gov.tick(now);
     const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now; frameN++;
     const t = rm ? 0 : (now - t0) / 1000;

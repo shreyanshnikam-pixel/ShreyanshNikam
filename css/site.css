@@ -17,6 +17,15 @@ img{max-width:100%;display:block}
 .world{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;display:block;z-index:0;pointer-events:none}
 .world.pool-film{z-index:1;opacity:0;display:none}
 .world.interactive{pointer-events:auto}
+/* drone moments behind the middle sections of Home (js/drone.js) */
+.drone{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .9s cubic-bezier(.16,1,.3,1);background:#0F1B26}
+.drone.on{opacity:1}
+.drone video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .9s cubic-bezier(.16,1,.3,1)}
+.drone video.front{opacity:1}
+.drone .scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(244,247,250,.62) 0%,rgba(244,247,250,.3) 42%,rgba(244,247,250,0) 72%)}
+@media (max-width:760px){.drone .scrim{background:linear-gradient(180deg,rgba(244,247,250,.5),rgba(244,247,250,.28) 50%,rgba(244,247,250,.5))}}
+.drone-credit{position:fixed;z-index:45;right:var(--pad);bottom:46px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#F4F7FA;text-shadow:0 1px 8px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .6s;text-decoration:none}
+.drone-credit.on{opacity:.85;pointer-events:auto}.drone-credit:hover{opacity:1;text-decoration:underline}
 main{position:relative;z-index:2}
 
 /* type */
@@ -38,13 +47,13 @@ p{margin:0 0 1em;max-width:62ch}
 .sec .copy{width:min(660px,48vw)}
 .sec.right{justify-content:flex-end}
 .sec .copy{position:relative}
-.sec .copy::before{content:"";position:absolute;inset:-60px -70px;z-index:-1;border-radius:40px;background:radial-gradient(closest-side,rgba(244,247,250,.72),rgba(244,247,250,.4) 62%,rgba(244,247,250,0));filter:blur(10px);pointer-events:none}
+.sec .copy::before{content:"";position:absolute;inset:-56px -64px;z-index:-1;pointer-events:none;background:rgba(244,247,250,.54);-webkit-backdrop-filter:blur(8px) saturate(1.08);backdrop-filter:blur(8px) saturate(1.08);-webkit-mask-image:linear-gradient(90deg,transparent,#000 64px,#000 calc(100% - 64px),transparent),linear-gradient(180deg,transparent,#000 56px,#000 calc(100% - 56px),transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 64px,#000 calc(100% - 64px),transparent),linear-gradient(180deg,transparent,#000 56px,#000 calc(100% - 56px),transparent);mask-composite:intersect}
 .hero>*{position:relative}.hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:62%;background:linear-gradient(90deg,rgba(244,247,250,.7),rgba(244,247,250,.35) 50%,rgba(244,247,250,0));pointer-events:none}
 .hero{position:relative}
 .sec.center{justify-content:center;text-align:center}.sec.center .copy{width:min(880px,90vw)}.sec.center p{margin-inline:auto}
 .tall{min-height:220vh}
 @media (max-width:960px){.sec .copy{width:min(660px,78vw)}}
-@media (max-width:760px){.sec{padding:96px var(--pad)}.sec .copy{width:100%}.sec .copy::before{inset:-32px -24px}}
+@media (max-width:760px){.sec{padding:96px var(--pad)}.sec .copy{width:100%}.sec .copy::before{inset:-30px -22px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent),linear-gradient(180deg,transparent,#000 30px,#000 calc(100% - 30px),transparent);mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent),linear-gradient(180deg,transparent,#000 30px,#000 calc(100% - 30px),transparent)}}
 
 /* header */
 .hdr{position:fixed;inset:0 0 auto 0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px var(--pad);transition:transform .7s var(--ease),color .5s,background .5s}
