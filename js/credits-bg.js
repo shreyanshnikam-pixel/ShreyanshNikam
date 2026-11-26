@@ -99,8 +99,8 @@
   frame(performance.now());
   window.CREDITS_BG = { ready: RL ? RL.ready : Promise.resolve() };
   let running = false, raf = 0;
-  const loop = (now) => { frame(now); raf = requestAnimationFrame(loop); };
-  const setRun = (on) => { if (rm || on === running) return; running = on; if (on) raf = requestAnimationFrame(loop); else cancelAnimationFrame(raf); };
+  SITE.loop((now) => { if (running) frame(now); });
+  const setRun = (on) => { if (rm || on === running) return; running = on; };
   setRun(!document.hidden);
   document.addEventListener('visibilitychange', () => setRun(!document.hidden));
 })();

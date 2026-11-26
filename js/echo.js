@@ -569,7 +569,6 @@
   let last = 0, t0 = performance.now(), ready = false, visible = true, frameN = 0;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
   function loopF(now) {
-    requestAnimationFrame(loopF);
     if (!visible || !ready) return;
     const dt = cl((now - (last || now)) / 1000, 0.0005, 0.05); last = now; const t = (now - t0) / 1000;
     gov.tick(now);
@@ -771,5 +770,5 @@
   ]).then(() => { try { R.compile(S, C); } catch (e) { /* first frame compiles */ } ready = true; if (loadingEl) loadingEl.classList.add('off'); if (S0.soundOn) audioStart(); loadScare(); })
     .catch((e) => { console.error(e); if (loadingEl) loadingEl.textContent = 'The mine failed to load. Scroll on to read about Echo.'; });
   S0.boot(load);
-  requestAnimationFrame(loopF);
+  S0.loop(loopF);
 })();

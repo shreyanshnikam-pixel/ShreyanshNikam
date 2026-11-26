@@ -192,7 +192,6 @@
     .then((ok) => { ready = ok.every(Boolean); measure(); });
 
   function frame(now) {
-    requestAnimationFrame(frame);
     if (!ready || document.hidden) { last = now; return; }
     if (!rm) gov.tick(now);
     const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
@@ -217,5 +216,5 @@
   }
   window.__proj = { R, P, gov, split };
   S0.boot(load, () => { measure(); });
-  requestAnimationFrame(frame);
+  S0.loop(frame);
 })();

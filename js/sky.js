@@ -231,10 +231,9 @@
       const io = window.IntersectionObserver ? new IntersectionObserver((ents) => { simVis = ents[0].isIntersecting; }, { threshold: 0.05 }) : null;
       if (io) io.observe(simCv); else simVis = true;
       const simTick = (now) => {
-        requestAnimationFrame(simTick);
         if (!document.hidden && simVis) drawSim(now * 0.001);
       };
-      requestAnimationFrame(simTick);
+      SITE.loop(simTick);
     }
   })();
 
@@ -1654,7 +1653,6 @@
   function setLook(sh) { C.position.copy(sh.pos); if (sh.quat) C.quaternion.copy(sh.quat); else C.lookAt(sh.look); }
 
   function frame(now) {
-    requestAnimationFrame(frame);
     if (!visible) return;
     const dt = clamp((now - (last || now)) / 1000, 0.0005, 0.05); last = now; lt += dt; const t = lt;
     const rf = film.getBoundingClientRect(), filmOn = rf.bottom > innerHeight * 0.02;
@@ -1789,5 +1787,5 @@
   all.then(() => { D.load.classList.add('off'); });
   S0.boot(all, () => { try { R.compile(S, C); } catch (e) {} });
   window.__sky = { S, C, R, comp, slices, bloom, gov };
-  requestAnimationFrame(frame);
+  S0.loop(frame);
 })();

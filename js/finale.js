@@ -89,7 +89,6 @@
   };
 
   function frame(now) {
-    requestAnimationFrame(frame);
     const target = pos(); x += (target - x) * (rm || S0.lenis ? 1 : 0.25);
     if (x > N - 3) load();
     if (!ready || window.__bgCover || document.hidden) { last = now; return; }
@@ -110,6 +109,6 @@
   }
   // the opening is the drone footage, so the page can show as soon as the first clip has a frame (or after 2.5 s)
   S0.boot(new Promise((res) => { const go = () => res(); const v = () => document.querySelector('.drone video'); let n = 0; const poll = () => { const el = v(); if ((el && el.readyState >= 2) || ++n > 25) go(); else setTimeout(poll, 100); }; poll(); }));
-  requestAnimationFrame(frame);
+  S0.loop(frame);
   window.__finale = { R, C, scenes, gov };
 })();

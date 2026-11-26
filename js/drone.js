@@ -36,7 +36,6 @@
     const pos = () => { const mid = innerHeight * 0.5; for (let i = 0; i < N; i++) { const r = secs[i].getBoundingClientRect(); if (mid < r.bottom || i === N - 1) return i + Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height))); } return 0; };
     let x = pos(), shownX = -1;
     const frame = () => {
-      requestAnimationFrame(frame);
       const target = pos(); x += (target - x) * (S0.rm || S0.lenis ? 1 : 0.3); // a touch of smoothing so a wheel step still glides
       if (Math.abs(x - shownX) < 0.0004) return; shownX = x;
       const i = Math.min(N - 1, Math.floor(x)), f = x - i;
@@ -59,7 +58,7 @@
         if (op > 0.001 || p.keep) play(p.v); else if (!p.v.paused) p.v.pause();
       });
     };
-    requestAnimationFrame(frame);
+    S0.loop(frame);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pool.forEach((p) => p.v.pause()); else shownX = -1; });
     window.__drone = { pos, pool };
   }

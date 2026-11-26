@@ -33,14 +33,16 @@
     // governor: call g.tick(now) once a frame; g.pr is the pixel ratio to use; onChange(pr) applies it
     const governor = (onChange, getWH) => {
       const g = { pr: 1, ema: 16.7, last: 0, n: 0, ceil: dprCap, calm: 0, settle: 0 };
-      g.reset = () => { const [w, h] = getWH(); g.pr = startPR(w, h); g.ceil = dprCap; g.settle = 30; onChange(g.pr); };
+      g.reset = () => { const [w, h] = getWH(); g.pr = startPR(w, h); g.ceil = dprCap; g.settle = 30; g.t0 = 0; onChange(g.pr); };
       g.tick = (now) => {
         if (!auto) return; // a fixed level from the Graphics panel: render exactly what was chosen
+        if (!g.t0) g.t0 = now; const warm = now - g.t0 < 9000;
         if (g.last) g.ema = g.ema * 0.9 + Math.min(now - g.last, 100) * 0.1;
         g.last = now; if (document.hidden || g.settle-- > 0) return;
         if (++g.n % 20) return;
+        if (!warm && g.ema < 30) return; // after warm-up the resolution holds still: no periodic resizes
         if (g.ema > 19.5 && g.pr > minPR) { g.ceil = Math.max(minPR, g.pr - 0.02); g.pr = Math.max(minPR, g.pr * (g.ema > 34 ? 0.78 : 0.9)); g.calm = 0; g.settle = 20; onChange(g.pr); }
-        else if (g.ema < 17.6) { if (++g.calm >= 6 && g.pr < g.ceil) { g.pr = Math.min(g.ceil, g.pr * 1.08); g.calm = 0; g.settle = 20; onChange(g.pr); } }
+        else if (warm && g.ema < 17.6) { if (++g.calm >= 6 && g.pr < g.ceil) { g.pr = Math.min(g.ceil, g.pr * 1.08); g.calm = 0; g.settle = 20; onChange(g.pr); } }
         else g.calm = 0;
       };
       g.apply = () => { if (!g.started) { g.started = true; g.reset(); } else onChange(g.pr); };
@@ -81,6 +83,8 @@
     lenis.on('scroll', ScrollTrigger.update);
     gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
   }
+  // every scene and overlay draws in the same tick as the scroll, after Lenis has moved the page, so backgrounds never lag the text
+  SITE.loop = (fn) => { if (window.gsap) gsap.ticker.add(() => fn(performance.now())); else { const l = (n) => { requestAnimationFrame(l); fn(n); }; requestAnimationFrame(l); } };
   document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
     const id = a.getAttribute('href');
     if (id.length < 2) return;
