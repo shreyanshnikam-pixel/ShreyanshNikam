@@ -39,19 +39,19 @@
   }
 
   // ---------- renderer, scene, post ----------
-  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: PERF.high, powerPreference: 'high-performance' });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping; R.setClearColor(0x000000, 1);
   const S = new T.Scene(), C = new T.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 420);
   const SKY = new T.Color('#0C1622'), BLACK = new T.Color(0), DEEPICE = new T.Color('#0A121A');
   S.background = SKY.clone(); S.fog = new T.FogExp2(SKY.clone(), 0.012);
-  const P = FK.composer(R, S, C, [0.42, 0.45, 0.92]), G = P.grade.uniforms;
+  const P = FK.composer(R, S, C, PERF.low ? null : [0.42, 0.45, 0.92]), G = P.grade.uniforms;
   G.uGrain.value = 0.02; G.uCA.value = 0.0009;
   const size = () => [Math.max(2, innerWidth), Math.max(2, innerHeight)];
   const gov = FK.governor(R, P.c, size); gov.max = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2);
   const bufSize = new T.Vector2();
   const mirRT = new T.WebGLRenderTarget(16, 16, { type: T.HalfFloatType });
   const onResize = () => { const s = size(); C.aspect = s[0] / s[1]; C.fov = C.aspect < 0.8 ? 72 : 58; C.updateProjectionMatrix(); gov.apply(); G.uRes.value.set(s[0], s[1]); if (P.bloom) P.bloom.resolution.set(s[0] / 2, s[1] / 2); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
-  const _apply = gov.apply; gov.apply = () => { _apply(); R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
+  gov.onApply = () => { R.getDrawingBufferSize(bufSize); mirRT.setSize(Math.max(2, bufSize.x >> 2), Math.max(2, bufSize.y >> 2)); };
   window.addEventListener('resize', onResize); onResize();
 
   // ---------- the path: a floor line from the crevasse, down the ice chute, through the mine ----------
@@ -723,7 +723,7 @@
     } else {
       world.DU.uT.value = t; world.DU.uScale.value = bufSize.y; world.DU.uCam.value.copy(C.position);
       const wantMirror = world.water && Math.abs(camS - (S_FLOOD0 + S_FLOOD1) / 2) < 42 && camS < S_FLOOD1 + 2 && blk < 0.99;
-      world.WU.uMirOn.value = wantMirror ? 1 : 0; if (wantMirror && (snap || (frameN % 3 === 0))) renderMirror();
+      const mirOK = wantMirror && !PERF.low; world.WU.uMirOn.value = mirOK ? 1 : 0; if (mirOK && (snap || (frameN % (PERF.high ? 3 : 6) === 0))) renderMirror(); // phones skip puddle reflections
       frameN++;
       P.c.render(dt);
     }

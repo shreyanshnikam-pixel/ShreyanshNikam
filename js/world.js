@@ -17,12 +17,12 @@
       .catch(() => {});
   }
 
-  // ---------- crisp direct renderer (antialias: true, DPR never < 1.0, calm ACES studio look) ----------
-  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
+  // ---------- renderer: pixel ratio from the shared PERF governor (tier budget, then held at 60 fps) ----------
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: PERF.high, powerPreference: 'high-performance' });
   R.outputEncoding = T.sRGBEncoding;
   R.toneMapping = T.ACESFilmicToneMapping;
   R.toneMappingExposure = 1.02;
-  R.shadowMap.enabled = true;
+  R.shadowMap.enabled = false; // nothing on Home casts a shadow any more (the 3D props are gone)
   R.shadowMap.type = T.PCFSoftShadowMap;
 
   const S = new T.Scene();
@@ -31,8 +31,9 @@
   S.background = FOG_COL.clone();
   S.fog = new T.FogExp2(FOG_COL.clone(), 0.0085);
 
-  const gov = { q: 1, ema: 12, n: 0 };
-  const getDpr = () => Math.max(1.0, Math.min(window.devicePixelRatio || 1, isMobile() ? 1.5 : 2) * gov.q);
+  let curPR = PERF.startPR(innerWidth, innerHeight);
+  const gov = PERF.governor((pr) => { curPR = pr; resize(); }, () => [innerWidth, innerHeight]); gov.started = true; gov.pr = curPR; gov.settle = 40;
+  const getDpr = () => curPR;
   const resize = () => {
     const w = innerWidth, h = innerHeight, dpr = getDpr();
     R.setPixelRatio(dpr); R.setSize(w, h, false);
@@ -389,16 +390,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible) { last = now; return; }
-    if (!rm && last) {
-      if (++gov.n > 30) {
-        gov.ema = gov.ema * 0.9 + Math.min(now - last, 80) * 0.1;
-        if (gov.n % 30 === 0) {
-          const minQ = Math.min(1, 1 / Math.max(1, Math.min(window.devicePixelRatio || 1, 2)));
-          const q = gov.ema > 24 ? Math.max(minQ, gov.q - 0.1) : gov.ema < 16 ? Math.min(1, gov.q + 0.08) : gov.q;
-          if (q !== gov.q) { gov.q = q; resize(); }
-        }
-      }
-    }
+    if (!rm) gov.tick(now);
     const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now;
     const t = rm ? 0 : (now - t0) / 1000;
     const idle = rm ? 0 : 1;

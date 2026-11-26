@@ -17,7 +17,7 @@
     const uBg = { value: null }, uBgOn = { value: 0 };
     // Sharp backdrop: slices cut from the 16K original where the camera looks (o.crops), the 2K photo everywhere else.
     // Slices store y = x / (x + k) at gamma 1/2.2, so the exact linear HDR value comes back out in the shader.
-    const crops = (o.crops || []).slice(0, 2), lowRes = Math.min(innerWidth, 2400) * Math.min(devicePixelRatio || 1, 2) < 1700;
+    const crops = (o.crops || []).slice(0, 2), lowRes = !window.PERF || !PERF.high || Math.min(innerWidth, 2400) * Math.min(devicePixelRatio || 1, 2) < 1700;
     const bgU = { tBgLo: uBg, uBgOn, uK: { value: o.cropK || 1 }, tCa: { value: null }, tCb: { value: null }, uRa: { value: new T.Vector4(0, 0, 0, 0) }, uRb: { value: new T.Vector4(0, 0, 0, 0) }, uOnA: { value: 0 }, uOnB: { value: 0 } };
     const cropLoads = crops.map((c, i) => new Promise((done) => {
       new T.TextureLoader().load(lowRes && c.half ? c.half : c.url, (tx) => {
@@ -83,7 +83,7 @@
     comp.addPass(new T.RenderPass(S, C));
     const bokeh = new T.BokehPass(S, C, { focus: o.focus, aperture: o.aperture, maxblur: o.maxblur, width: innerWidth, height: innerHeight });
     if (o.dof && !o.mobile) comp.addPass(bokeh); // off by default: Shreyansh wants a crisp, not blurred, background
-    const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.22, 0.8, 0.92); comp.addPass(bloom);
+    const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.22, 0.8, 0.92); if (!window.PERF || !PERF.low) comp.addPass(bloom); // phones skip the glow
     const grade = new T.ShaderPass({
       uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uExp: { value: o.exposure }, uRes: { value: new T.Vector2(1, 1) }, uFlash: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -110,7 +110,7 @@
         '}'].join('\n'),
     });
     comp.addPass(grade);
-    const resize = () => { const pr = R.getPixelRatio(), w = innerWidth, h = innerHeight; comp.setPixelRatio(pr); comp.setSize(w, h); grade.uniforms.uRes.value.set(w, h); bloom.resolution.set(w / 2, h / 2); };
+    const resize = () => { const pr = R.getPixelRatio(), w = innerWidth, h = innerHeight; comp.setPixelRatio(pr); comp.setSize(w, h); grade.uniforms.uRes.value.set(w, h); const bd = window.PERF && !PERF.high ? 4 : 2; bloom.resolution.set(w / bd, h / bd); };
     window.addEventListener('resize', () => setTimeout(resize, 0)); resize();
     let t = 0;
     return {

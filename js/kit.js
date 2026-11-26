@@ -69,25 +69,9 @@
     const g = FK.gradePass(); c.addPass(g);
     return { c, bloom: bp, grade: g };
   };
-  // quality governor: frame-time EMA adjusts pixel ratio (never drops below 1.0 DPR so scenes stay razor-sharp)
+  // quality governor: the shared PERF governor (core.js) picks the pixel ratio from the device tier and frame time
   FK.governor = (renderer, composer, getSize) => {
-    const g = { q: 1, ema: 16, last: 0, max: Math.min(window.devicePixelRatio || 1, 2) };
-    g.tick = (now) => {
-      if (g.last) { const dt = now - g.last; g.ema = g.ema * 0.93 + Math.min(dt, 80) * 0.07; }
-      g.last = now;
-      g.frames = (g.frames || 0) + 1;
-      if (g.frames % 40 === 0) {
-        let nq = g.q;
-        const minQ = Math.min(1, 1 / Math.max(1, g.max));
-        if (g.ema > 26 && g.q > minQ) nq = Math.max(minQ, g.q - 0.1); else if (g.ema < 16 && g.q < 1) nq = Math.min(1, g.q + 0.05);
-        if (nq !== g.q) { g.q = nq; g.apply(); }
-      }
-    };
-    g.apply = () => {
-      const pr = Math.max(1.0, g.max * g.q); const s = getSize();
-      renderer.setPixelRatio(pr); renderer.setSize(s[0], s[1], false);
-      composer.setPixelRatio(pr); composer.setSize(s[0], s[1]);
-    };
+    const g = window.PERF.governor((pr) => { const s = getSize(); renderer.setPixelRatio(pr); renderer.setSize(s[0], s[1], false); composer.setPixelRatio(pr); composer.setSize(s[0], s[1]); if (g.onApply) g.onApply(); }, getSize);
     return g;
   };
   // patch a standard material with extra shader code (onBeforeCompile)

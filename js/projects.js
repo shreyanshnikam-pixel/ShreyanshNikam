@@ -9,7 +9,7 @@
   if (!S0.glOk || !cv) { S0.boot(Promise.resolve()); return; }
 
   let R;
-  try { R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); }
+  try { R = new T.WebGLRenderer({ canvas: cv, antialias: PERF.high, powerPreference: 'high-performance' }); }
   catch (e) { S0.boot(Promise.resolve()); return; }
   document.documentElement.classList.add('gl');
 
@@ -23,8 +23,9 @@
   S.fog = new T.FogExp2(FOG.clone(), FOG_D);
 
   const mobile = () => innerWidth < 760;
-  const gov = { q: 1, ema: 12, n: 0 };
-  const DPR = () => Math.max(1.0, Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2) * gov.q);
+  let curPR = PERF.startPR(innerWidth, innerHeight);
+  const gov = PERF.governor((pr) => { curPR = pr; layout(); }, () => [innerWidth, innerHeight]); gov.started = true; gov.pr = curPR; gov.settle = 40;
+  const DPR = () => curPR;
 
   const pm = new T.PMREMGenerator(R);
   S.environment = pm.fromScene(new T.RoomEnvironment(), 0.04).texture;
@@ -270,16 +271,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible) { last = now; return; }
-    if (!rm && last) {
-      if (++gov.n > 30) {
-        gov.ema = gov.ema * 0.9 + Math.min(now - last, 80) * 0.1;
-        if (gov.n % 30 === 0) {
-          const minQ = Math.min(1, 1 / Math.max(1, Math.min(window.devicePixelRatio || 1, 2)));
-          const q = gov.ema > 24 ? Math.max(minQ, gov.q - 0.1) : gov.ema < 16 ? Math.min(1, gov.q + 0.08) : gov.q;
-          if (q !== gov.q) { gov.q = q; layout(); }
-        }
-      }
-    }
+    if (!rm) gov.tick(now);
     const dt = Math.min(0.05, Math.max(0.0005, (now - (last || now)) / 1000)); last = now;
     const t = rm ? 0 : (now - t0) / 1000, idle = rm ? 0 : 1;
     mouse.lerp(mt, 1 - Math.exp(-dt * 3.8));

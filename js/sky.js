@@ -251,13 +251,13 @@
   const rnd = FK.rng(17);
 
   // ================= renderer, camera, post =================
-  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: PERF.high, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
   R.outputEncoding = T.LinearEncoding; R.toneMapping = T.NoToneMapping;
-  R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap; R.shadowMap.autoUpdate = false;
+  R.shadowMap.enabled = !PERF.low; R.shadowMap.type = PERF.high ? T.PCFSoftShadowMap : T.PCFShadowMap; R.shadowMap.autoUpdate = false;
   const S = new T.Scene(), C = new T.PerspectiveCamera(50, 1, 0.05, 120000);
   const comp = new T.EffectComposer(R, new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType }));
   comp.addPass(new T.RenderPass(S, C));
-  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.42, 0.42, 0.92); comp.addPass(bloom);
+  const bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), 0.42, 0.42, 0.92); if (!PERF.low) comp.addPass(bloom); // phones skip the glow
   const grade = new T.ShaderPass({
     uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uExp: { value: 1 }, uWhite: { value: 0 }, uDip: { value: 0 }, uSensor: { value: 0 }, uCA: { value: 0.0005 }, uVig: { value: 0.36 },
       uGrain: { value: 0.008 }, uSat: { value: 1 }, uLift: { value: 0 }, uTint: { value: new T.Vector3(1, 1, 1) }, uRes: { value: new T.Vector2(1, 1) } },
@@ -287,14 +287,14 @@
   });
   comp.addPass(grade);
   const G = grade.uniforms;
-  let DPR = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2), q = 1, W = 1, H = 1;
-  const applySize = () => { const pr = Math.max(0.62, DPR * q); R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(Math.max(64, W >> 2), Math.max(64, H >> 2)); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
+  let W = innerWidth, H = innerHeight, curPR = PERF.startPR(W, H);
+  const applySize = () => { const pr = curPR; R.setPixelRatio(pr); R.setSize(W, H, false); comp.setPixelRatio(pr); comp.setSize(W, H); bloom.resolution.set(Math.max(64, W >> 2), Math.max(64, H >> 2)); G.uRes.value.set(W * pr, H * pr); sizeOvl(); };
   const sizeOvl = () => { const pr = Math.max(1.0, Math.min(window.devicePixelRatio || 1, 2)); ovl.width = Math.round(W * pr); ovl.height = Math.round(H * pr); ovl.style.width = W + 'px'; ovl.style.height = H + 'px'; };
   const resize = () => { W = innerWidth; H = innerHeight; C.aspect = W / H; C.updateProjectionMatrix(); applySize(); };
   window.addEventListener('resize', resize); resize();
-  // frame-time governor: trims resolution only down to 1.0 DPR (never blurry sub-1x soup)
-  let ema = 16, gl0 = 0, fcount = 0;
-  const govern = (now) => { if (gl0) ema = ema * 0.9 + Math.min(120, now - gl0) * 0.1; gl0 = now; if (++fcount % 20) return; const minPR = Math.max(0.62, Math.min(1, 1700 / Math.max(1, W))), minQ = Math.min(1, minPR / Math.max(1, DPR)); let nq = q; if (ema > 21 && q > minQ) nq = Math.max(minQ, q - (ema > 40 ? 0.15 : 0.07)); else if (ema < 14 && q < 1) nq = Math.min(1, q + 0.04); if (Math.abs(nq - q) > 1e-3) { q = nq; applySize(); } };
+  // frame-time governor: the shared PERF governor (tier budget first, then held at 60 fps, stepping up only while smooth)
+  const gov = PERF.governor((pr) => { curPR = pr; applySize(); }, () => [W, H]); gov.started = true; gov.pr = curPR; gov.settle = 40;
+  const govern = (now) => gov.tick(now);
 
   // ================= small helpers =================
   const cnv = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; if (draw) draw(c.getContext('2d'), w, h); return c; };
@@ -346,7 +346,7 @@
   S.fog = new T.FogExp2(0x9aa7b6, 0.00016);
 
   // ================= clouds: streamlined volumetric slices (fast FPS, crisp overcast) =================
-  const NSL = mobile ? 5 : 7;
+  const NSL = PERF.high ? 7 : PERF.mid ? 5 : 4; // cloud layers by device tier
   const cloudU = { uT: { value: 0 }, uFogD: { value: 0.0001 }, uFogC: { value: new T.Color() }, uLit: { value: new T.Color() }, uShade: { value: new T.Color() }, uSunC: { value: new T.Color() }, uSun: { value: SUN.clone() }, uDen: { value: mobile ? 0.36 : 0.28 }, uClear: { value: 1 } };
   const cloudVS = LOGV + 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;\n#include <logdepthbuf_vertex>\n}';
   const cloudFS = LOGF + NOISE + [
@@ -1788,6 +1788,6 @@
   const all = Promise.all(loads);
   all.then(() => { D.load.classList.add('off'); });
   S0.boot(all, () => { try { R.compile(S, C); } catch (e) {} });
-  window.__sky = { S, C, R, comp, slices, bloom, govern: () => ({ q, ema, DPR }) };
+  window.__sky = { S, C, R, comp, slices, bloom, gov };
   requestAnimationFrame(frame);
 })();

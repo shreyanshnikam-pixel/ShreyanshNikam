@@ -9,9 +9,9 @@
 
   let renderer;
   try {
-    renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'low-power' });
+    renderer = new T.WebGLRenderer({ canvas, antialias: PERF.high, alpha: false, powerPreference: 'low-power' });
   } catch (e) { window.CREDITS_BG = { ready: Promise.resolve() }; return; }
-  renderer.setPixelRatio(Math.max(1.0, Math.min(small ? 1.5 : 2.0, window.devicePixelRatio || 1)));
+  renderer.setPixelRatio(PERF.startPR(innerWidth, innerHeight) * (PERF.high ? 1 : 0.85)); // a soft backdrop: below the budget is fine
   renderer.outputEncoding = T.sRGBEncoding;
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.98;
