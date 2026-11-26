@@ -360,7 +360,7 @@
     '  float cov = mix(0.26, 0.6, pow(uH, 1.2)) + smoothstep(9000.0, 17000.0, vW.x) * 0.45 * uClear;',
     '  float den = smoothstep(cov, cov + 0.17, n);',
     '  if (den < 0.003) discard;',
-    '  float al = den * uDen * smoothstep(0.0, 45.0, abs(vW.y - cameraPosition.y)) * (1.0 - smoothstep(32000.0, 62000.0, dist));',
+    '  float al = den * uDen * smoothstep(0.0, 150.0, abs(vW.y - cameraPosition.y)) * smoothstep(0.015, 0.12, abs(vd.y)) * (1.0 - smoothstep(32000.0, 62000.0, dist));',
     '  float tau = (1.0 - uH) * 1.65 + max(0.0, n - cov) * 2.2;',
     '  float beer = exp(-tau * 0.85); float powder = 1.0 - exp(-tau * 2.1);',
     '  float mu = dot(vd, uSun); float phase = mix(hg(mu, 0.72), hg(mu, -0.25), 0.25);',
@@ -524,7 +524,7 @@
         '  else if (aP.y > 1.5 && aP.y < 2.5) { vec3 wp = (modelMatrix * vec4(position, 1.0)).xyz; vec3 dv = cameraPosition - wp; float el = degrees(atan(dv.y, length(dv.xz))); c = mix(vec3(3.4, 0.16, 0.08), vec3(3.4, 3.2, 2.9), smoothstep(aP.z - 0.04, aP.z + 0.04, el)); }',
         '  else if (aP.y > 2.5) { I = fract(uT*aP.w + aP.z) < 0.5 ? 1.0 : 0.05; }',
         '  vC = c; vI = I * exp(-dist * uFogD * 0.5) * uGain;',
-        '  gl_PointSize = clamp(aP.x * uScale / dist, uMin, 70.0);',
+        '  float raw = aP.x * uScale / dist; gl_PointSize = clamp(raw, uMin, 70.0); vI *= clamp(raw / uMin, 0.15, 1.0);',
         '  gl_Position = projectionMatrix * mv;',
         '#include <logdepthbuf_vertex>',
         '}'].join('\n'),
@@ -1471,7 +1471,7 @@
     // drifting slowly around it, 0 to 0.30; a low trailing view as it climbs away on the go-around, 0.88 to the end
     if (p < 0.30) {
       const k = sh(0, 0.30), a = lerp(-2.55, -2.25, k) + Math.sin(t * 0.21) * 0.025, r = lerp(92, 70, ss(0, 0.30, p)), up = lerp(16, 9, k);
-      const bump = inCloud * 0.35; const jx = (Math.sin(t * 9.1) + Math.sin(t * 5.3)) * bump, jy = Math.sin(t * 7.7) * bump;
+      const bump = inCloud * 0.35; const jx = (Math.sin(t * 1.3) + Math.sin(t * 0.83) * 0.6) * bump * 0.4, jy = Math.sin(t * 1.07) * bump * 0.35;
       return { mode: 'ext', pos: V(pp.x + Math.cos(a) * r + jx, pp.y + up + jy, pp.z + Math.sin(a) * r * (port ? 0.8 : 1)), look: V(pp.x + 34, pp.y + 2.5, pp.z), fov: port ? 58 : 38 };
     }
     if (p >= 0.88) {
@@ -1833,7 +1833,7 @@
     }
     grp.airport.visible = grp.tower.visible = !bScene; grp.flock.visible = !bScene && p > 0.3; drone.visible = phoneG.visible = !bScene && p > 0.3 && p < 0.9; vort.pts.visible = !bScene;
     const cy = C.position.y; const approach = C.position.x < 9000;
-    inCloud = approach ? ss(CB - 25, CB + 140, cy) * (1 - ss(CTOP - 160, CTOP + 30, cy)) : 0;
+    { const ic = approach ? ss(CB - 60, CB + 260, cy) * (1 - ss(CTOP - 380, CTOP + 60, cy)) : 0; inCloud = forced != null ? ic : inCloud + (ic - inCloud) * (1 - Math.exp(-dt * 1.4)); }
     const above = cy > CTOP - 60;
     const pre = bScene ? 0 : 1 - ss(0.02, 0.2, p);
     setSun(bScene ? 7 : lerp(-1.4, 0.8, ss(0, 0.24, p)));
@@ -1844,7 +1844,7 @@
       // Crisp cold dawn slate-blue haze (never flat muddy grey) so runway lights, approach strobes, dawn ridge & 747SP pop cleanly
       cA.setRGB(0.16, 0.23, 0.33); cB.setRGB(0.84, 0.87, 0.91);
       S.fog.color.copy(cA).lerp(cB, inCloud);
-      S.fog.density = lerp(0.000075, 0.011, Math.pow(inCloud, 1.5));
+      S.fog.density = lerp(0.000075, 0.0042, Math.pow(inCloud, 1.6));
     }
     cloudU.uFogD.value = S.fog.density; cloudU.uFogC.value.copy(S.fog.color); lpFog.value = S.fog.density;
     if (bScene) { cloudU.uLit.value.setRGB(1.0, 0.98, 0.97); cloudU.uShade.value.setRGB(0.6, 0.67, 0.78); cloudU.uSunC.value.setRGB(1.0, 0.85, 0.7); }
@@ -1859,6 +1859,8 @@
     });
     // above the deck only the top two layers are drawn (the rest are hidden behind them anyway), made denser to match
     cloudU.uDen.value = (mobile ? 0.36 : 0.28) * (above ? 1.75 : 1);
+    film.classList.toggle('fogged', inCloud > 0.35 && !back);
+    if (cityPts) cityPts.material.uniforms.uGain.value = 0.8 * (1 - inCloud) * (1 - 0.85 * ss(300, 1100, cy));
     const below = !above && inCloud < 0.5; fieldLights.renderOrder = city.renderOrder = below ? 3000 : 2; snowfall.visible = false;
     sky.position.copy(C.position); stars.position.copy(C.position);
     lpScale.value = H * R.getPixelRatio() / (2 * Math.tan(C.fov * DEG / 2));
@@ -1890,7 +1892,7 @@
     let exp = back ? 1.0 : above ? lerp(0.95, 0.72, 1 - pre) : sh.exp;
     exp *= 1 - inCloud * 0.10;
     const dip = 0;
-    let white = back ? 0 : inCloud * 0.45 + ss(0.935, 0.975, p) * 1.0;
+    let white = back ? 0 : inCloud * 0.18 + ss(0.935, 0.975, p) * 1.0;
     if (!back && p > 0.53 && p < 0.548) white = Math.max(white, 1 - ss(0.0, 0.006, Math.abs(p - 0.545)));
     G.uExp.value = exp; G.uDip.value = dip * (p > 0.53 && p < 0.55 ? 0 : 1); G.uWhite.value = Math.min(1, white);
     G.uSensor.value = sh.sensor; G.uCA.value = 0.0005 + (sh.shake || 0) * 0.004; G.uSat.value = back ? 0.92 : 1.04;
